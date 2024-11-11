@@ -1,0 +1,18 @@
+{
+  "name": "windmill-ts",
+  "version": "1.0.0",
+  "description": "Type-safe client for Windmill",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "rimraf dist/ && tsc"
+  },
+  "keywords": [],
+  "author": "Tsvetomir Bonev <invakid404>",
+  "license": "Unlicense",
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3"
+  }
+}
