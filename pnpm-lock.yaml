@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      windmill-client:
+        specifier: ^1.422.0
+        version: 1.422.0
       zod:
         specifier: ^3.23.8
         version: 3.23.8
@@ -162,6 +165,9 @@ packages:
     engines: {node: '>= 8'}
     hasBin: true
 
+  windmill-client@1.422.0:
+    resolution: {integrity: sha512-W8GCjIilNXY50OOvZwdT0XaKW2De6uSuyGaQlWMUF3UlIVj97soPhyW4QjgyMWbDCL67wkE2qlNPSupNG+4sCQ==}
+
   wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
     engines: {node: '>=10'}
@@ -301,6 +307,8 @@ snapshots:
   which@2.0.2:
     dependencies:
       isexe: 2.0.0
+
+  windmill-client@1.422.0: {}
 
   wrap-ansi@7.0.0:
     dependencies:

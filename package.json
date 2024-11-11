@@ -16,6 +16,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "windmill-client": "^1.422.0",
     "zod": "^3.23.8"
   }
 }
