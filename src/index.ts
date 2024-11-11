@@ -1,3 +1,9 @@
+import { setup } from "./windmill/client.js";
 import { getActiveWorkspace } from "./windmill/workspace.js";
 
-console.log(await getActiveWorkspace());
+const activeWorkspace = await getActiveWorkspace();
+if (activeWorkspace == null) {
+  throw new Error("Windmill CLI not configured");
+}
+
+setup(activeWorkspace);
