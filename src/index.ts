@@ -1,3 +1,4 @@
+import { collectResourceTypes } from "./generator/collectResourceTypes.js";
 import { setup } from "./windmill/client.js";
 import { listResourceTypes } from "./windmill/resourceTypes.js";
 import { listScripts } from "./windmill/scripts.js";
@@ -10,8 +11,22 @@ if (activeWorkspace == null) {
 
 setup(activeWorkspace);
 
-console.log(await listResourceTypes());
+const allResourceTypes = await listResourceTypes();
 
-for await (const { path, schema } of listScripts()) {
-  console.log(path, JSON.stringify(schema, null, 2));
+const referencedResourceTypes = new Set<string>();
+for await (const { schema } of listScripts()) {
+  if (schema == null) {
+    continue;
+  }
+
+  const resourceTypes = collectResourceTypes(schema);
+  for (const resourceType of resourceTypes) {
+    if (!(resourceType in allResourceTypes)) {
+      continue;
+    }
+
+    referencedResourceTypes.add(resourceType);
+  }
 }
+
+console.log(referencedResourceTypes);
