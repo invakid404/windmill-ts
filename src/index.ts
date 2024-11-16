@@ -8,6 +8,7 @@ import { listScripts } from "./windmill/scripts.js";
 import { getActiveWorkspace } from "./windmill/workspace.js";
 import { jsonSchemaToZod } from "json-schema-to-zod";
 import toValidIdentifier from "to-valid-identifier";
+import PQueue from "p-queue";
 
 const activeWorkspace = await getActiveWorkspace();
 if (activeWorkspace == null) {
@@ -104,13 +105,23 @@ for await (const { path, schema } of listScripts()) {
   scriptMap.set(path, schemaName);
 }
 
-for (const resourceType of referencedResourceTypes) {
-  const resourcePaths = await Array.fromAsync(
-    listResourcesByType(resourceType),
-    ({ path }) => path,
-  );
+const resourceQueue = new PQueue({ concurrency: 5 });
 
-  const resourceSchema = makeResourceSchema(resourcePaths);
+const resources = [...referencedResourceTypes].map((resourceType) =>
+  resourceQueue.add(
+    async () => ({
+      resourceType,
+      paths: await Array.fromAsync(
+        listResourcesByType(resourceType),
+        ({ path }) => path,
+      ),
+    }),
+    { throwOnTimeout: true },
+  ),
+);
+
+for await (const { resourceType, paths } of resources) {
+  const resourceSchema = makeResourceSchema(paths);
 
   const schemaName = toValidIdentifier(resourceType);
   const zodSchema = jsonSchemaToZod(resourceSchema);
