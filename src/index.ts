@@ -63,6 +63,13 @@ for await (const { path, schema } of listScripts()) {
   const schemaName = scriptPathToSchemaName(path);
   const zodSchema = jsonSchemaToZod(schema, {
     parserOverride: (schema, refs) => {
+      // NOTE: Windmill sometimes has `default: null` on required fields,
+      //       which is incorrect for obvious reasons, so as a rule of thumb,
+      //       we remove null default values as a whole
+      if ("default" in schema && schema.default == null) {
+        delete schema.default;
+      }
+
       // NOTE: Windmill sometimes has `enum: null` on string fields, and the
       //       library doesn't like that, so we need to delete it
       if (schema.type === "string" && schema.enum == null) {
