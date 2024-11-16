@@ -1,8 +1,16 @@
 import toValidIdentifier from "to-valid-identifier";
 import { jsonSchemaToZod } from "json-schema-to-zod";
 import type { ResourceTypes } from "../windmill/resourceTypes.js";
-import { getContext } from "./context.js";
+import { getContext, run } from "./context.js";
 import { JSONSchema } from "./types.js";
+import { InMemoryDuplex } from "../utils/inMemoryDuplex.js";
+
+export const runWithBuffer = async <T,>(cb: () => T) => {
+  const buffer = new InMemoryDuplex();
+  const result = await run(buffer, cb);
+
+  return { buffer, result };
+};
 
 export type Runnable = {
   path: string;
