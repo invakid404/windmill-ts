@@ -2,7 +2,8 @@
   "name": "windmill-ts",
   "version": "0.1.0",
   "description": "Type-safe client for Windmill",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
+  "bin": "dist/src/index.js",
   "type": "module",
   "scripts": {
     "build": "rimraf dist/ && tsc",
