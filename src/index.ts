@@ -10,7 +10,7 @@ import { listResourceTypes } from "./windmill/resourceTypes.js";
 import { listScripts } from "./windmill/scripts.js";
 import { getActiveWorkspace } from "./windmill/workspace.js";
 import { jsonSchemaToZod } from "json-schema-to-zod";
-import camelCase from "lodash.camelcase";
+import toValidIdentifier from "to-valid-identifier";
 
 const activeWorkspace = await getActiveWorkspace();
 if (activeWorkspace == null) {
@@ -18,13 +18,6 @@ if (activeWorkspace == null) {
 }
 
 setup(activeWorkspace);
-
-// TODO: handle all invalid characters in TypeScript identifiers
-const scriptPathToSchemaName = (scriptPath: string) =>
-  scriptPath.replaceAll("/", "_").replaceAll("-", "_");
-
-const resourceTypeToSchemaName = (resourceType: string) =>
-  camelCase(resourceType);
 
 const allResourceTypes = await listResourceTypes();
 const referencedResourceTypes = new Set<string>();
@@ -60,7 +53,7 @@ for await (const { path, schema } of listScripts()) {
     referencedResourceTypes.add(resourceType);
   }
 
-  const schemaName = scriptPathToSchemaName(path);
+  const schemaName = toValidIdentifier(path);
   const zodSchema = jsonSchemaToZod(schema, {
     parserOverride: (schema, refs) => {
       // NOTE: Windmill sometimes has `default: null` on required fields,
@@ -91,7 +84,7 @@ for await (const { path, schema } of listScripts()) {
           return `z.any()`;
         }
 
-        return resourceTypeToSchemaName(resourceType);
+        return toValidIdentifier(resourceType);
       }
     },
   });
@@ -107,7 +100,7 @@ for (const resourceType of referencedResourceTypes) {
 
   const resourceSchema = makeResourceSchema(resourceType, resourcePaths);
 
-  const schemaName = resourceTypeToSchemaName(resourceType);
+  const schemaName = toValidIdentifier(resourceType);
   const zodSchema = jsonSchemaToZod(resourceSchema);
 
   console.log(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
