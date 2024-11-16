@@ -51,7 +51,16 @@ export const generateSchemas = async ({
   write("} as const))");
 };
 
-export const schemaToZod = (schema: JSONSchema) => {
+export type SchemaToZodOptions = {
+  resourceTypeToSchemaName?: (resourceType: string) => string;
+};
+
+export const schemaToZod = (
+  schema: JSONSchema,
+  options?: SchemaToZodOptions,
+) => {
+  const { resourceTypeToSchemaName = resourceReferencesSchemaName } =
+    options ?? {};
   const { allResourceTypes } = getContext()!;
 
   return jsonSchemaToZod(schema, {
@@ -84,7 +93,7 @@ export const schemaToZod = (schema: JSONSchema) => {
           return `z.any()`;
         }
 
-        return resourceReferencesSchemaName(resourceType);
+        return resourceTypeToSchemaName(resourceType);
       }
     },
   });
