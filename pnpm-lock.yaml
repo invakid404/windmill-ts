@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      json-schema-to-zod:
+        specifier: ^2.4.1
+        version: 2.4.1
       json-schema-walker:
         specifier: ^2.0.0
         version: 2.0.0
@@ -118,6 +121,10 @@ packages:
 
   js-yaml@4.1.0:
     resolution: {integrity: sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==}
+    hasBin: true
+
+  json-schema-to-zod@2.4.1:
+    resolution: {integrity: sha512-aMoez9TxgnfLAIZaWTPaQ+j7rOt1K9Ew/TBI85XcnhcFlo/47b1MDgpi4r07XndLSZWOX/KsJiRJvhdzSvo2Dw==}
     hasBin: true
 
   json-schema-walker@2.0.0:
@@ -295,6 +302,8 @@ snapshots:
   js-yaml@4.1.0:
     dependencies:
       argparse: 2.0.1
+
+  json-schema-to-zod@2.4.1: {}
 
   json-schema-walker@2.0.0:
     dependencies:
