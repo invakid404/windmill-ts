@@ -42,7 +42,6 @@ for await (const { path, schema } of listScripts()) {
     referencedResourceTypes.add(resourceType);
   }
 
-  // TODO: handle non-resource argument types outside of main signature
   const zodSchema = jsonSchemaToZod(schema, {
     name: scriptPathToSchemaName(path),
     module: "esm",
@@ -62,6 +61,13 @@ for await (const { path, schema } of listScripts()) {
       );
       if (resourceTypeOrFalse) {
         const { resourceType } = resourceTypeOrFalse;
+        // NOTE: we could do a best-effort attempt to resolve non-resource
+        //       argument types by parsing the script sources (for TS only),
+        //       but handling things like types imported from elsewhere would
+        //       not be easy
+        if (!(resourceType in allResourceTypes)) {
+          return `z.any()`;
+        }
 
         return resourceTypeToSchemaName(resourceType);
       }
