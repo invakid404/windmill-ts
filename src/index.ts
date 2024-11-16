@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import packageJSON from "../package.json" with { type: "json" };
 import { Command } from "commander";
 import { setup } from "./windmill/client.js";
