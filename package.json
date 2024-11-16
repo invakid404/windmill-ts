@@ -19,6 +19,7 @@
     "dedent": "^1.5.3",
     "json-schema-to-zod": "^2.4.1",
     "json-schema-walker": "^2.0.0",
+    "to-valid-identifier": "^0.1.1",
     "windmill-client": "^1.422.0",
     "zod": "^3.23.8"
   }
