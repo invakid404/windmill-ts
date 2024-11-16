@@ -1,22 +1,35 @@
+import PQueue from "p-queue";
 import * as wmill from "windmill-client";
 
-export async function* listScripts() {
+const PER_PAGE = 20;
+
+export async function* listScripts(concurrency?: number) {
+  const queue = new PQueue({ concurrency: concurrency ?? 5 });
+
   const workspace = process.env["WM_WORKSPACE"]!;
 
-  const scriptPaths = await wmill.ScriptService.listScriptPaths({
-    workspace,
-  });
-
-  for (const path of scriptPaths) {
-    const script = await wmill.ScriptService.getScriptByPath({
+  for (let page = 1; ; ++page) {
+    const pageData = await wmill.ScriptService.listScripts({
       workspace,
-      path,
+      page,
+      perPage: PER_PAGE,
     });
 
-    if (script.archived) {
-      continue;
+    if (pageData.length === 0) {
+      break;
     }
 
-    yield script;
+    const promises = pageData.map(({ path }) =>
+      queue.add(
+        () =>
+          wmill.ScriptService.getScriptByPath({
+            workspace,
+            path,
+          }),
+        { throwOnTimeout: true },
+      ),
+    );
+
+    yield* promises;
   }
 }
