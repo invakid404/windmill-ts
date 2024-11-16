@@ -15,3 +15,5 @@ export const listResourceTypes = async () => {
     {} as Partial<Record<string, wmill.ResourceType>>,
   );
 };
+
+export type ResourceTypes = Awaited<ReturnType<typeof listResourceTypes>>;
