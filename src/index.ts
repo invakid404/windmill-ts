@@ -1,5 +1,6 @@
 import { collectResourceTypes } from "./generator/collectResourceTypes.js";
 import { setup } from "./windmill/client.js";
+import { listResourcesByType } from "./windmill/resources.js";
 import { listResourceTypes } from "./windmill/resourceTypes.js";
 import { listScripts } from "./windmill/scripts.js";
 import { getActiveWorkspace } from "./windmill/workspace.js";
@@ -29,4 +30,8 @@ for await (const { schema } of listScripts()) {
   }
 }
 
-console.log(referencedResourceTypes);
+for (const resourceType of referencedResourceTypes) {
+  const resources = await Array.fromAsync(listResourcesByType(resourceType));
+
+  console.log(resourceType, resources);
+}
