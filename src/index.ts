@@ -5,6 +5,7 @@ import { getActiveWorkspaceName, getWorkspace } from "./windmill/workspace.js";
 import { generate } from "./generator/index.js";
 import * as fs from "node:fs";
 import ora, { Ora } from "ora";
+import chalk from "chalk";
 
 const program = new Command();
 
@@ -30,7 +31,9 @@ program
 
       if (!isStdout) {
         console.error(
-          `Workspace name not provided, defaulting to "${workspaceName}"`,
+          chalk.yellow(
+            `⚠️ Workspace name not provided, defaulting to "${workspaceName}"`,
+          ),
         );
       }
     }
@@ -48,12 +51,16 @@ program
 
     let spinner: Ora | null = null;
     if (!isStdout) {
-      spinner = ora("Generating").start();
+      spinner = ora("Generating...").start();
     }
 
     await generate(stream);
 
     spinner?.stop();
+
+    if (!isStdout) {
+      console.error(chalk.green("🚀 Done!"));
+    }
   });
 
 program.parse();
