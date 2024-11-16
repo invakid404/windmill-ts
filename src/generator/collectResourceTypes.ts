@@ -1,6 +1,5 @@
 import { Walker } from "json-schema-walker";
-
-type JSONSchema = Parameters<InstanceType<typeof Walker>["loadSchema"]>[0];
+import type { JSONSchema } from "./types.js";
 
 const RESOURCE_TYPE_PREFIX = "resource-";
 
