@@ -5,6 +5,8 @@ import { listResourcesByType } from "./windmill/resources.js";
 import { listResourceTypes } from "./windmill/resourceTypes.js";
 import { listScripts } from "./windmill/scripts.js";
 import { getActiveWorkspace } from "./windmill/workspace.js";
+import { jsonSchemaToZod } from "json-schema-to-zod";
+import camelCase from "lodash.camelcase";
 
 const activeWorkspace = await getActiveWorkspace();
 if (activeWorkspace == null) {
@@ -37,5 +39,13 @@ for (const resourceType of referencedResourceTypes) {
     ({ path }) => path,
   );
 
-  console.log(resourceType, makeResourceSchema(resourceType, resourcePaths));
+  const resourceSchema = makeResourceSchema(resourceType, resourcePaths);
+  const zodSchema = jsonSchemaToZod(resourceSchema, {
+    name: camelCase(resourceType),
+    module: "esm",
+    type: true,
+    noImport: true,
+  });
+
+  console.log(zodSchema);
 }
