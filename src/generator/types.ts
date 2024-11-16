@@ -1,5 +1,3 @@
-import type { Walker } from "json-schema-walker";
+import type { JsonSchemaObject } from "json-schema-to-zod";
 
-export type JSONSchema = Parameters<
-  InstanceType<typeof Walker>["loadSchema"]
->[0];
+export type JSONSchema = JsonSchemaObject;

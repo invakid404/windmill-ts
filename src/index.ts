@@ -1,8 +1,5 @@
 import dedent from "dedent";
-import {
-  collectResourceTypes,
-  extractResourceTypeFromSchema,
-} from "./generator/collectResourceTypes.js";
+import { extractResourceTypeFromSchema } from "./generator/extractResourceTypeFromSchema.js";
 import { makeResourceSchema } from "./generator/makeResourceSchema.js";
 import { setup } from "./windmill/client.js";
 import { listResourcesByType } from "./windmill/resources.js";
@@ -44,18 +41,9 @@ for await (const { path, schema } of listScripts()) {
     continue;
   }
 
-  const resourceTypes = collectResourceTypes(schema);
-  for (const resourceType of resourceTypes) {
-    if (!(resourceType in allResourceTypes)) {
-      continue;
-    }
-
-    referencedResourceTypes.add(resourceType);
-  }
-
   const schemaName = toValidIdentifier(path);
   const zodSchema = jsonSchemaToZod(schema, {
-    parserOverride: (schema, refs) => {
+    parserOverride: (schema, _refs) => {
       // NOTE: Windmill sometimes has `default: null` on required fields,
       //       which is incorrect for obvious reasons, so as a rule of thumb,
       //       we remove null default values as a whole
@@ -83,6 +71,8 @@ for await (const { path, schema } of listScripts()) {
         if (!(resourceType in allResourceTypes)) {
           return `z.any()`;
         }
+
+        referencedResourceTypes.add(resourceType);
 
         return toValidIdentifier(resourceType);
       }
