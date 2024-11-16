@@ -14,6 +14,9 @@ importers:
       json-schema-walker:
         specifier: ^2.0.0
         version: 2.0.0
+      lodash.camelcase:
+        specifier: ^4.3.0
+        version: 4.3.0
       windmill-client:
         specifier: ^1.422.0
         version: 1.422.0
@@ -21,6 +24,9 @@ importers:
         specifier: ^3.23.8
         version: 3.23.8
     devDependencies:
+      '@types/lodash.camelcase':
+        specifier: ^4.3.9
+        version: 4.3.9
       '@types/node':
         specifier: ^22.9.0
         version: 22.9.0
@@ -46,6 +52,12 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  '@types/lodash.camelcase@4.3.9':
+    resolution: {integrity: sha512-ys9/hGBfsKxzmFI8hckII40V0ASQ83UM2pxfQRghHAwekhH4/jWtjz/3/9YDy7ZpUd/H0k2STSqmPR28dnj7Zg==}
+
+  '@types/lodash@4.17.13':
+    resolution: {integrity: sha512-lfx+dftrEZcdBPczf9d0Qv0x+j/rfNCMuC6OcfXmO8gkfeNAY88PgKUbvG56whcN23gc27yenwF6oJZXGFpYxg==}
 
   '@types/node@22.9.0':
     resolution: {integrity: sha512-vuyHg81vvWA1Z1ELfvLko2c8f34gyA0zaic0+Rllc5lbCnbSyuvb2Oxpm6TAUAC/2xZN3QGqxBNggD1nNR2AfQ==}
@@ -130,6 +142,9 @@ packages:
   json-schema-walker@2.0.0:
     resolution: {integrity: sha512-nXN2cMky0Iw7Af28w061hmxaPDaML5/bQD9nwm1lOoIKEGjHcRGxqWe4MfrkYThYAPjSUhmsp4bJNoLAyVn9Xw==}
     engines: {node: '>=10'}
+
+  lodash.camelcase@4.3.0:
+    resolution: {integrity: sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==}
 
   lru-cache@11.0.2:
     resolution: {integrity: sha512-123qHRfJBmo2jXDbo/a5YOQrJoHF/GNQTLzQ5+IdK5pWpceK17yRc6ozlWd25FxvGKQbIUs91fDFkXmDHTKcyA==}
@@ -235,6 +250,12 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
+  '@types/lodash.camelcase@4.3.9':
+    dependencies:
+      '@types/lodash': 4.17.13
+
+  '@types/lodash@4.17.13': {}
+
   '@types/node@22.9.0':
     dependencies:
       undici-types: 6.19.8
@@ -309,6 +330,8 @@ snapshots:
     dependencies:
       '@apidevtools/json-schema-ref-parser': 11.7.2
       clone: 2.1.2
+
+  lodash.camelcase@4.3.0: {}
 
   lru-cache@11.0.2: {}
 
