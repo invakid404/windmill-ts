@@ -8,9 +8,15 @@ export async function* listScripts() {
   });
 
   for (const path of scriptPaths) {
-    yield wmill.ScriptService.getScriptByPath({
+    const script = await wmill.ScriptService.getScriptByPath({
       workspace,
       path,
     });
+
+    if (script.archived) {
+      continue;
+    }
+
+    yield script;
   }
 }
