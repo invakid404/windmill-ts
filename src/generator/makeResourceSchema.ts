@@ -1,6 +1,6 @@
 import type { JSONSchema } from "./types.js";
 
-export const makeResourceSchema = (resourceType: string, paths: string[]) => {
+export const makeResourceSchema = (paths: string[]) => {
   const refs = paths.map((path) => `$res:${path}`);
 
   return {

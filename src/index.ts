@@ -110,7 +110,7 @@ for (const resourceType of referencedResourceTypes) {
     ({ path }) => path,
   );
 
-  const resourceSchema = makeResourceSchema(resourceType, resourcePaths);
+  const resourceSchema = makeResourceSchema(resourcePaths);
 
   const schemaName = toValidIdentifier(resourceType);
   const zodSchema = jsonSchemaToZod(resourceSchema);
