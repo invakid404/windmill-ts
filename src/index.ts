@@ -1,3 +1,4 @@
+import dedent from "dedent";
 import {
   collectResourceTypes,
   extractResourceTypeFromSchema,
@@ -26,8 +27,25 @@ const resourceTypeToSchemaName = (resourceType: string) =>
   camelCase(resourceType);
 
 const allResourceTypes = await listResourceTypes();
-
 const referencedResourceTypes = new Set<string>();
+
+console.log(dedent`
+  import { z } from 'zod';
+
+  const lazyObject = <T,>(fn: () => T) => {
+    let instance: T | null = null;
+    return new Proxy({}, {
+      get(_target, prop) {
+        if (instance == null) {
+          instance = fn();
+        }
+
+        return instance[prop];
+      }
+    }) as T;
+  }
+`);
+
 for await (const { path, schema } of listScripts()) {
   if (schema == null) {
     continue;
@@ -42,11 +60,8 @@ for await (const { path, schema } of listScripts()) {
     referencedResourceTypes.add(resourceType);
   }
 
+  const schemaName = scriptPathToSchemaName(path);
   const zodSchema = jsonSchemaToZod(schema, {
-    name: scriptPathToSchemaName(path),
-    module: "esm",
-    type: true,
-    noImport: true,
     parserOverride: (schema, refs) => {
       // NOTE: Windmill sometimes has `enum: null` on string fields, and the
       //       library doesn't like that, so we need to delete it
@@ -74,7 +89,7 @@ for await (const { path, schema } of listScripts()) {
     },
   });
 
-  console.log(zodSchema);
+  console.log(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
 }
 
 for (const resourceType of referencedResourceTypes) {
@@ -84,12 +99,9 @@ for (const resourceType of referencedResourceTypes) {
   );
 
   const resourceSchema = makeResourceSchema(resourceType, resourcePaths);
-  const zodSchema = jsonSchemaToZod(resourceSchema, {
-    name: resourceTypeToSchemaName(resourceType),
-    module: "esm",
-    type: true,
-    noImport: true,
-  });
 
-  console.log(zodSchema);
+  const schemaName = resourceTypeToSchemaName(resourceType);
+  const zodSchema = jsonSchemaToZod(resourceSchema);
+
+  console.log(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
 }
