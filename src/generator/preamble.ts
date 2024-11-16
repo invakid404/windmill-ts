@@ -14,7 +14,7 @@ const preamble = dedent`
           instance = fn();
         }
 
-        return instance[prop];
+        return (instance as never)[prop];
       }
     }) as T;
   }
