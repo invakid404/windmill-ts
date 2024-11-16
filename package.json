@@ -19,6 +19,7 @@
     "commander": "^12.1.0",
     "dedent": "^1.5.3",
     "json-schema-to-zod": "^2.4.1",
+    "ora": "^8.1.1",
     "p-queue": "^8.0.1",
     "to-valid-identifier": "^0.1.1",
     "windmill-client": "^1.422.0",
