@@ -1,7 +1,11 @@
 import type { JSONSchema } from "./types.js";
 
-export const makeResourceSchema = (resourceType: string, paths: string[]) =>
-  ({
+export const makeResourceSchema = (resourceType: string, paths: string[]) => {
+  const refs = paths.map((path) => `$res:${path}`);
+
+  return {
     type: "string",
-    enum: paths.map((path) => `$res:${path}`),
-  }) satisfies JSONSchema;
+    enum: refs,
+    ...(refs.length === 1 && { default: refs[0] }),
+  } satisfies JSONSchema;
+};
