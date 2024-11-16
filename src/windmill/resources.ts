@@ -2,7 +2,7 @@ import * as wmill from "windmill-client";
 
 const PER_PAGE = 20;
 
-export async function* listResourcesByType(resourceType: string) {
+export async function* listResources(resourceType?: string) {
   const workspace = process.env["WM_WORKSPACE"]!;
 
   for (let page = 1; ; ++page) {
@@ -10,7 +10,8 @@ export async function* listResourcesByType(resourceType: string) {
       workspace,
       page,
       perPage: PER_PAGE,
-      resourceType,
+      resourceTypeExclude: "state,app_theme",
+      ...(resourceType != null && { resourceType }),
     });
 
     if (pageData.length === 0) {

@@ -7,25 +7,19 @@ import { generateResources } from "./resources.js";
 import { generateFlows } from "./flows.js";
 import { runWithBuffer } from "./common.js";
 
-export const generate = async (output: Writable) =>
-  run(output, async () => {
+export const generate = async (output: Writable) => {
+  const allResourceTypes = await listResourceTypes();
+  return run(output, allResourceTypes, async () => {
     writePreamble();
 
-    const allResourceTypes = await listResourceTypes();
     const results = await Promise.all(
-      [generateScripts, generateFlows].map((fn) =>
-        runWithBuffer(() => fn(allResourceTypes)),
+      [generateResources, generateScripts, generateFlows].map((fn) =>
+        runWithBuffer(fn),
       ),
     );
 
-    const referencedResourceTypes = results.reduce(
-      (acc, { buffer, result }) => {
-        buffer.pipe(output);
-
-        return acc.union(result);
-      },
-      new Set<string>(),
-    );
-
-    await generateResources([...referencedResourceTypes]);
+    results.forEach(({ buffer }) => {
+      buffer.pipe(output);
+    });
   });
+};

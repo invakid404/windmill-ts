@@ -1,39 +1,68 @@
 import toValidIdentifier from "to-valid-identifier";
-import { jsonSchemaToZod } from "json-schema-to-zod";
 import PQueue from "p-queue";
-import { listResourcesByType } from "../windmill/resources.js";
+import { listResources } from "../windmill/resources.js";
 import type { JSONSchema } from "./types.js";
 import { getContext } from "./context.js";
+import { schemaToZod } from "./common.js";
+import dedent from "dedent";
 
-export const generateResources = async (resourceTypes: string[]) => {
-  const { write } = getContext()!;
+const resourceToTypeMap = "resourceToType";
 
-  const resourceQueue = new PQueue({ concurrency: 5 });
+const preamble = dedent`
+  export const getResource = <Path extends keyof typeof resourceToType>(
+    path: Path,
+  ): Promise<z.infer<(typeof resourceToType)[Path]>> => wmill.getResource(path);
+`;
 
-  const resources = resourceTypes.map((resourceType) =>
-    resourceQueue.add(
-      async () => ({
-        resourceType,
-        paths: await Array.fromAsync(
-          listResourcesByType(resourceType),
-          ({ path }) => path,
-        ),
-      }),
-      { throwOnTimeout: true },
-    ),
-  );
+export const generateResources = async () => {
+  const { write, allResourceTypes } = getContext()!;
 
-  for await (const { resourceType, paths } of resources) {
-    const resourceSchema = makeResourceSchema(paths);
+  write(preamble);
 
-    const schemaName = toValidIdentifier(resourceType);
-    const zodSchema = jsonSchemaToZod(resourceSchema);
-
-    write(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
+  const resourcesByType = new Map<string, string[]>();
+  for await (const {
+    resource_type: resourceTypeName,
+    path,
+  } of listResources()) {
+    const paths = resourcesByType.get(resourceTypeName) ?? [];
+    resourcesByType.set(resourceTypeName, [...paths, path]);
   }
+
+  for (const [resourceTypeName, paths] of resourcesByType) {
+    const resourceType = allResourceTypes[resourceTypeName]!;
+
+    const typeSchemaName = resourceTypeSchemaName(resourceType.name);
+    const resourceTypeSchema = schemaToZod(resourceType.schema as never);
+
+    write(`const ${typeSchemaName} = lazyObject(() => ${resourceTypeSchema});`);
+
+    const referencesSchemaName = resourceReferencesSchemaName(
+      resourceType.name,
+    );
+    const referencesSchema = schemaToZod(makeReferencesSchema(paths));
+
+    write(
+      `const ${referencesSchemaName} = lazyObject(() => ${referencesSchema});`,
+    );
+  }
+
+  write(`const ${resourceToTypeMap} = lazyObject(() => ({`);
+  for (const [resourceTypeName, paths] of resourcesByType) {
+    const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
+    for (const path of paths) {
+      write(`${JSON.stringify(path)}: ${typeSchemaName},`);
+    }
+  }
+  write(`} as const));`);
 };
 
-const makeResourceSchema = (paths: string[]) => {
+export const resourceReferencesSchemaName = (resourceType: string) =>
+  toValidIdentifier(`${resourceType}_references`);
+
+export const resourceTypeSchemaName = (resourceType: string) =>
+  toValidIdentifier(`${resourceType}_type`);
+
+const makeReferencesSchema = (paths: string[]) => {
   const refs = paths.map((path) => `$res:${path}`);
 
   return {

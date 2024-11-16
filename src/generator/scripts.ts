@@ -26,13 +26,12 @@ const preamble = dedent`
   };
 `;
 
-export const generateScripts = async (allResourceTypes: ResourceTypes) => {
+export const generateScripts = async () => {
   const { write } = getContext()!;
 
   await write(preamble);
 
   return generateSchemas({
-    allResourceTypes,
     generator: listScripts(),
     mapName,
   });
