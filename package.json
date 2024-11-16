@@ -17,6 +17,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "dedent": "^1.5.3",
     "json-schema-to-zod": "^2.4.1",
     "json-schema-walker": "^2.0.0",
     "lodash.camelcase": "^4.3.0",
