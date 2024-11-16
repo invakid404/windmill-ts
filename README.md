@@ -3,6 +3,8 @@
 A TypeScript code generator for creating type-safe clients for
 [Windmill](https://www.windmill.dev/).
 
+https://github.com/user-attachments/assets/b6bc15a0-3e17-4d93-8b7f-cf10505e14c9
+
 Under the hood, it uses the official
 [windmill-client](http://npm.im/windmill-client) library to interact with
 Windmill, and exposes a similar interface.
