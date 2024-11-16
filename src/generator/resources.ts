@@ -9,9 +9,14 @@ import dedent from "dedent";
 const resourceToTypeMap = "resourceToType";
 
 const preamble = dedent`
-  export const getResource = <Path extends keyof typeof resourceToType>(
+  export const getResource = async <Path extends keyof typeof resourceToType>(
     path: Path,
-  ): Promise<z.infer<(typeof resourceToType)[Path]>> => wmill.getResource(path);
+  ): Promise<z.infer<(typeof resourceToType)[Path]>> => {
+    const schema = ${resourceToTypeMap}[path];
+    const data = await wmill.getResource(path);
+
+    return schema.parse(data);
+  }
 `;
 
 export const generateResources = async () => {
