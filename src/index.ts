@@ -1,4 +1,7 @@
-import { collectResourceTypes } from "./generator/collectResourceTypes.js";
+import {
+  collectResourceTypes,
+  extractResourceTypeFromSchema,
+} from "./generator/collectResourceTypes.js";
 import { makeResourceSchema } from "./generator/makeResourceSchema.js";
 import { setup } from "./windmill/client.js";
 import { listResourcesByType } from "./windmill/resources.js";
@@ -15,10 +18,17 @@ if (activeWorkspace == null) {
 
 setup(activeWorkspace);
 
+// TODO: handle all invalid characters in TypeScript identifiers
+const scriptPathToSchemaName = (scriptPath: string) =>
+  scriptPath.replaceAll("/", "_").replaceAll("-", "_");
+
+const resourceTypeToSchemaName = (resourceType: string) =>
+  camelCase(resourceType);
+
 const allResourceTypes = await listResourceTypes();
 
 const referencedResourceTypes = new Set<string>();
-for await (const { schema } of listScripts()) {
+for await (const { path, schema } of listScripts()) {
   if (schema == null) {
     continue;
   }
@@ -31,6 +41,34 @@ for await (const { schema } of listScripts()) {
 
     referencedResourceTypes.add(resourceType);
   }
+
+  // TODO: handle non-resource argument types outside of main signature
+  const zodSchema = jsonSchemaToZod(schema, {
+    name: scriptPathToSchemaName(path),
+    module: "esm",
+    type: true,
+    noImport: true,
+    parserOverride: (schema, refs) => {
+      // NOTE: Windmill sometimes has `enum: null` on string fields, and the
+      //       library doesn't like that, so we need to delete it
+      if (schema.type === "string" && schema.enum == null) {
+        delete schema.enum;
+
+        return;
+      }
+
+      const resourceTypeOrFalse = extractResourceTypeFromSchema(
+        schema as never,
+      );
+      if (resourceTypeOrFalse) {
+        const { resourceType } = resourceTypeOrFalse;
+
+        return resourceTypeToSchemaName(resourceType);
+      }
+    },
+  });
+
+  console.log(zodSchema);
 }
 
 for (const resourceType of referencedResourceTypes) {
@@ -41,7 +79,7 @@ for (const resourceType of referencedResourceTypes) {
 
   const resourceSchema = makeResourceSchema(resourceType, resourcePaths);
   const zodSchema = jsonSchemaToZod(resourceSchema, {
-    name: camelCase(resourceType),
+    name: resourceTypeToSchemaName(resourceType),
     module: "esm",
     type: true,
     noImport: true,

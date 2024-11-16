@@ -3,6 +3,19 @@ import type { JSONSchema } from "./types.js";
 
 const RESOURCE_TYPE_PREFIX = "resource-";
 
+export const extractResourceTypeFromSchema = (schema: JSONSchema) => {
+  if (
+    schema.type !== "object" ||
+    !schema.format?.startsWith(RESOURCE_TYPE_PREFIX)
+  ) {
+    return false;
+  }
+
+  return {
+    resourceType: schema.format.slice(RESOURCE_TYPE_PREFIX.length),
+  };
+};
+
 export const collectResourceTypes = (schema: JSONSchema) => {
   const walker = new Walker();
   walker.loadSchema(schema, {
@@ -11,15 +24,12 @@ export const collectResourceTypes = (schema: JSONSchema) => {
 
   const resourceTypes = new Set<string>();
   walker.walk((schema) => {
-    if (
-      schema.type !== "object" ||
-      !schema.format?.startsWith(RESOURCE_TYPE_PREFIX)
-    ) {
+    const result = extractResourceTypeFromSchema(schema);
+    if (!result) {
       return;
     }
 
-    const name = schema.format.slice(RESOURCE_TYPE_PREFIX.length);
-    resourceTypes.add(name);
+    resourceTypes.add(result.resourceType);
   }, walker.vocabularies.DRAFT_07);
 
   return resourceTypes;
