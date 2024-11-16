@@ -21,6 +21,7 @@ const referencedResourceTypes = new Set<string>();
 
 console.log(dedent`
   import { z } from 'zod';
+  import * as wmill from 'windmill-client';
 
   const lazyObject = <T,>(fn: () => T) => {
     let instance: T | null = null;
@@ -34,7 +35,27 @@ console.log(dedent`
       }
     }) as T;
   }
+
+  export const runScript = <Path extends keyof typeof scripts>(
+    scriptPath: Path,
+    args: z.input<(typeof scripts)[Path]>,
+  ) => {
+    const schema = scripts[scriptPath];
+
+    return wmill.runScript(scriptPath, null, schema.parse(args));
+  };
+
+  export const runScriptAsync = <Path extends keyof typeof scripts>(
+    scriptPath: Path,
+    args: z.input<(typeof scripts)[Path]>,
+  ) => {
+    const schema = scripts[scriptPath];
+
+    return wmill.runScriptAsync(scriptPath, null, schema.parse(args));
+  };
 `);
+
+const scriptMap = new Map<string, string>();
 
 for await (const { path, schema } of listScripts()) {
   if (schema == null) {
@@ -80,6 +101,7 @@ for await (const { path, schema } of listScripts()) {
   });
 
   console.log(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
+  scriptMap.set(path, schemaName);
 }
 
 for (const resourceType of referencedResourceTypes) {
@@ -95,3 +117,9 @@ for (const resourceType of referencedResourceTypes) {
 
   console.log(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
 }
+
+console.log("const scripts = lazyObject(() => ({");
+for (const [scriptPath, schemaName] of scriptMap) {
+  console.log(`${JSON.stringify(scriptPath)}: ${schemaName},`);
+}
+console.log("} as const))");
