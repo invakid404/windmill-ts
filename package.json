@@ -5,10 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "rimraf dist/ && tsc"
+    "build": "rimraf dist/ && tsc",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [],
-  "author": "Tsvetomir Bonev <invakid404>",
+  "author": "Tsvetomir Bonev <me@invak.id>",
   "license": "Unlicense",
   "devDependencies": {
     "@types/node": "^22.9.0",
@@ -25,5 +26,14 @@
     "to-valid-identifier": "^0.1.1",
     "windmill-client": "^1.422.0",
     "zod": "^3.23.8"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/invakid404/windmill-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/invakid404/windmill-ts/issues"
+  },
+  "homepage": "https://github.com/invakid404/windmill-ts#readme",
+  "files": ["dist", "README.md"]
 }
