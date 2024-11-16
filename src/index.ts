@@ -4,6 +4,7 @@ import { setup } from "./windmill/client.js";
 import { getActiveWorkspaceName, getWorkspace } from "./windmill/workspace.js";
 import { generate } from "./generator/index.js";
 import * as fs from "node:fs";
+import ora, { Ora } from "ora";
 
 const program = new Command();
 
@@ -21,12 +22,17 @@ program
     "target Windmill workspace, defaults to the active Windmill CLI workspace",
   )
   .action(async (output: string, options: { workspace?: string }) => {
+    const isStdout = output === "-";
+
     let workspaceName = options.workspace;
     if (!workspaceName) {
       workspaceName = await getActiveWorkspaceName();
-      console.error(
-        `Workspace name not provided, defaulting to "${workspaceName}"`,
-      );
+
+      if (!isStdout) {
+        console.error(
+          `Workspace name not provided, defaulting to "${workspaceName}"`,
+        );
+      }
     }
 
     const workspace = await getWorkspace(workspaceName);
@@ -38,10 +44,16 @@ program
 
     setup(workspace);
 
-    const stream =
-      output === "-" ? process.stdout : fs.createWriteStream(output);
+    const stream = isStdout ? process.stdout : fs.createWriteStream(output);
+
+    let spinner: Ora | null = null;
+    if (!isStdout) {
+      spinner = ora("Generating").start();
+    }
 
     await generate(stream);
+
+    spinner?.stop();
   });
 
 program.parse();
