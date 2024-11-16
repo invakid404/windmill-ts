@@ -11,7 +11,6 @@
   "author": "Tsvetomir Bonev <invakid404>",
   "license": "Unlicense",
   "devDependencies": {
-    "@types/lodash.camelcase": "^4.3.9",
     "@types/node": "^22.9.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.6.3"
@@ -20,7 +19,6 @@
     "dedent": "^1.5.3",
     "json-schema-to-zod": "^2.4.1",
     "json-schema-walker": "^2.0.0",
-    "lodash.camelcase": "^4.3.0",
     "windmill-client": "^1.422.0",
     "zod": "^3.23.8"
   }
