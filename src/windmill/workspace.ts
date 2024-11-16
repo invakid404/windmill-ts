@@ -34,25 +34,21 @@ export const getAllWorkspaces = async () => {
       ...acc,
       [workspace.name]: workspace,
     }),
-    {} as Partial<Record<string, Omit<Workspace, "name">>>,
+    {} as Partial<Record<string, Workspace>>,
   );
 };
 
-export const getActiveWorkspace = async () => {
+export const getWorkspace = async (name: string) => {
   const workspaces = await getAllWorkspaces();
 
+  return workspaces[name];
+};
+
+export const getActiveWorkspaceName = async () => {
   const rootStore = await getRootStore();
 
   const activeWorkspacePath = path.join(rootStore, "activeWorkspace");
   const activeWorkspaceName = await fs.readFile(activeWorkspacePath, "utf-8");
 
-  const activeWorkspace = workspaces[activeWorkspaceName];
-  if (activeWorkspace == null) {
-    return null;
-  }
-
-  return {
-    ...activeWorkspace,
-    name: activeWorkspaceName,
-  };
+  return activeWorkspaceName;
 };

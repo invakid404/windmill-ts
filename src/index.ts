@@ -1,12 +1,47 @@
+import packageJSON from "../package.json" with { type: "json" };
+import { Command } from "commander";
 import { setup } from "./windmill/client.js";
-import { getActiveWorkspace } from "./windmill/workspace.js";
+import { getActiveWorkspaceName, getWorkspace } from "./windmill/workspace.js";
 import { generate } from "./generator/index.js";
+import * as fs from "node:fs";
 
-const activeWorkspace = await getActiveWorkspace();
-if (activeWorkspace == null) {
-  throw new Error("Windmill CLI not configured");
-}
+const program = new Command();
 
-setup(activeWorkspace);
+program
+  .name("windmill-ts")
+  .description("Type-safe Windmill client for TypeScript")
+  .version(packageJSON.version);
 
-await generate(process.stdout);
+program
+  .command("generate", { isDefault: true })
+  .description("Generate client")
+  .argument("<output>", "output path; provide - to output to stdout")
+  .option(
+    "-w, --workspace <name>",
+    "target Windmill workspace, defaults to the active Windmill CLI workspace",
+  )
+  .action(async (output: string, options: { workspace?: string }) => {
+    let workspaceName = options.workspace;
+    if (!workspaceName) {
+      workspaceName = await getActiveWorkspaceName();
+      console.error(
+        `Workspace name not provided, defaulting to "${workspaceName}"`,
+      );
+    }
+
+    const workspace = await getWorkspace(workspaceName);
+    if (workspace == null) {
+      throw new Error(
+        `Workspace with name ${workspace} not found in Windmill CLI config`,
+      );
+    }
+
+    setup(workspace);
+
+    const stream =
+      output === "-" ? process.stdout : fs.createWriteStream(output);
+
+    await generate(stream);
+  });
+
+program.parse();
