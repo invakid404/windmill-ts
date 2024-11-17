@@ -4,6 +4,7 @@ import { getContext, run } from "./context.js";
 import { JSONSchema } from "./types.js";
 import { InMemoryDuplex } from "../utils/inMemoryDuplex.js";
 import { resourceReferencesSchemaName } from "./resources.js";
+import { once } from "../utils/once.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
   const { allResourceTypes } = getContext()!;
@@ -28,7 +29,7 @@ export const generateSchemas = async ({
   generator,
   mapName,
 }: GenerateSchemasOptions) => {
-  const { write, allResourceTypes } = getContext()!;
+  const { write } = getContext()!;
 
   const pathToSchemaMap = new Map<string, string>();
 
@@ -85,12 +86,19 @@ export const schemaToZod = (
       );
       if (resourceTypeOrFalse) {
         const { resourceType } = resourceTypeOrFalse;
+        // NOTE: this is exactly how the Windmill frontend detects S3 objects
+        //       it is needed, as both `S3Object` and `s3_object` are valid
+        //       https://github.com/windmill-labs/windmill/blob/e4583e9b2366b90f31eb015c4dfc21f07b0bc31e/frontend/src/lib/components/ArgInput.svelte#L604-L607
+        if (resourceType.replace("_", "").toLowerCase() === "s3object") {
+          return s3ObjectZodSchema();
+        }
+
         // NOTE: we could do a best-effort attempt to resolve non-resource
         //       argument types by parsing the script sources (for TS only),
         //       but handling things like types imported from elsewhere would
         //       not be easy
         if (!(resourceType in allResourceTypes)) {
-          return `z.any()`;
+          return "z.any()";
         }
 
         return resourceTypeToSchemaName(resourceType);
@@ -98,6 +106,28 @@ export const schemaToZod = (
     },
   });
 };
+
+const s3ObjectZodSchema = once(() => {
+  const jsonSchema = {
+    type: "object",
+    properties: {
+      s3: {
+        type: "string",
+      },
+      storage: {
+        type: "string",
+      },
+      // NOTE: `filename` isn't present in `S3Object` in `windmill-client`, but
+      //       Windmill sets it when you upload a file from the UI
+      filename: {
+        type: "string",
+      },
+    },
+    required: ["s3"],
+  } satisfies JSONSchema;
+
+  return jsonSchemaToZod(jsonSchema);
+});
 
 const RESOURCE_TYPE_PREFIX = "resource-";
 
