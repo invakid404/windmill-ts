@@ -57,7 +57,8 @@ npx windmill-ts -
 
 ## Generated Client Usage
 
-The generated client provides type-safe functions for running scripts and flows:
+The generated client provides type-safe functions for running scripts and flows,
+and getting resources:
 
 ```typescript
 import {
@@ -65,6 +66,7 @@ import {
   runScriptAsync,
   runFlow,
   runFlowAsync,
+  getResource,
 } from "./generated-client";
 
 // Run a script synchronously
@@ -85,6 +87,10 @@ const flowResult = await runFlow("my/flow/path", {
   input1: "value",
   input2: true,
 });
+
+// Get a resource with type validation
+const resource = await getResource("my/resource/path");
+// TypeScript will infer the correct type based on the resource type
 ```
 
 ## How It Works
