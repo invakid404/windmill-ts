@@ -108,6 +108,9 @@ export const schemaToZod = (
 };
 
 const s3ObjectZodSchema = once(() => {
+  const { deferWrite } = getContext()!;
+  const name = `$s3_object_type`;
+
   const jsonSchema = {
     type: "object",
     properties: {
@@ -126,7 +129,10 @@ const s3ObjectZodSchema = once(() => {
     required: ["s3"],
   } satisfies JSONSchema;
 
-  return jsonSchemaToZod(jsonSchema);
+  const schema = jsonSchemaToZod(jsonSchema);
+  deferWrite(`const ${name} = ${schema};`);
+
+  return name;
 });
 
 const RESOURCE_TYPE_PREFIX = "resource-";
