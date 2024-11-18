@@ -35,6 +35,9 @@ export const generateResources = async () => {
 
   for (const [resourceTypeName, paths] of resourcesByType) {
     const resourceType = allResourceTypes[resourceTypeName]!;
+    if (resourceType == null) {
+      continue;
+    }
 
     const typeSchemaName = resourceTypeSchemaName(resourceType.name);
     const resourceTypeSchema = schemaToZod(resourceType.schema as never, {
