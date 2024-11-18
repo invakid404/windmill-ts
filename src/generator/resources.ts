@@ -42,7 +42,7 @@ export const generateResources = async () => {
 
     const typeSchemaName = resourceTypeSchemaName(resourceType.name);
     const resourceTypeSchema = schemaToZod(resourceType.schema as never, {
-      resourceTypeToSchemaName: resourceTypeSchemaName,
+      resourceTypeToSchema: resourceTypeSchemaName,
     });
 
     write(`const ${typeSchemaName} = lazyObject(() => ${resourceTypeSchema});`);

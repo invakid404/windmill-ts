@@ -3,7 +3,10 @@ import { jsonSchemaToZod } from "json-schema-to-zod";
 import { getContext, run } from "./context.js";
 import { JSONSchema } from "./types.js";
 import { InMemoryDuplex } from "../utils/inMemoryDuplex.js";
-import { resourceReferencesSchemaName } from "./resources.js";
+import {
+  resourceReferencesSchemaName,
+  resourceTypeSchemaName,
+} from "./resources.js";
 import { once } from "../utils/once.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
@@ -53,15 +56,14 @@ export const generateSchemas = async ({
 };
 
 export type SchemaToZodOptions = {
-  resourceTypeToSchemaName?: (resourceType: string) => string;
+  resourceTypeToSchema?: (resourceType: string) => string;
 };
 
 export const schemaToZod = (
   schema: JSONSchema,
   options?: SchemaToZodOptions,
 ) => {
-  const { resourceTypeToSchemaName = resourceReferencesSchemaName } =
-    options ?? {};
+  const { resourceTypeToSchema = resourceTypeToUnion } = options ?? {};
   const { allResourceTypes } = getContext()!;
 
   return jsonSchemaToZod(schema, {
@@ -101,10 +103,14 @@ export const schemaToZod = (
           return "z.any()";
         }
 
-        return resourceTypeToSchemaName(resourceType);
+        return resourceTypeToSchema(resourceType);
       }
     },
   });
+};
+
+const resourceTypeToUnion = (resourceType: string) => {
+  return `z.union([${resourceReferencesSchemaName(resourceType)}, ${resourceTypeSchemaName(resourceType)}])`;
 };
 
 const s3ObjectZodSchema = once(() => {
