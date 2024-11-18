@@ -10,7 +10,7 @@ export async function* listResources(resourceType?: string) {
       workspace,
       page,
       perPage: PER_PAGE,
-      resourceTypeExclude: "state,app_theme,app_custom",
+      resourceTypeExclude: "cache,state,app_theme,app_custom",
       ...(resourceType != null && { resourceType }),
     });
 
