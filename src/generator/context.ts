@@ -1,8 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { Writable } from "node:stream";
+import { PassThrough, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { ResourceTypes } from "../windmill/resourceTypes.js";
-import { InMemoryDuplex } from "../utils/inMemoryDuplex.js";
 
 type GenerateContext = {
   write: (content: string) => Promise<void>;
@@ -48,7 +47,7 @@ export const run = async <T,>(
 
   // Execute deferred writes
   if (deferredWrites.length > 0) {
-    const buffer = new InMemoryDuplex();
+    const buffer = new PassThrough();
 
     // NOTE: in order to avoid the output being dependent on the write order,
     //       deferred writes are sorted before written to the output

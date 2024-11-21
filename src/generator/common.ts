@@ -2,7 +2,7 @@ import toValidIdentifier from "to-valid-identifier";
 import { jsonSchemaToZod } from "json-schema-to-zod";
 import { getContext, run } from "./context.js";
 import { JSONSchema } from "./types.js";
-import { InMemoryDuplex } from "../utils/inMemoryDuplex.js";
+import { PassThrough } from "node:stream";
 import {
   resourceReferencesSchemaName,
   resourceTypeSchemaName,
@@ -12,7 +12,7 @@ import { once } from "../utils/once.js";
 export const runWithBuffer = async <T,>(cb: () => T) => {
   const { allResourceTypes } = getContext()!;
 
-  const buffer = new InMemoryDuplex();
+  const buffer = new PassThrough();
   const result = await run(buffer, allResourceTypes, cb);
 
   return { buffer, result };
