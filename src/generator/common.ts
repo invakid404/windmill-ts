@@ -44,15 +44,15 @@ export const generateSchemas = async ({
     const schemaName = toValidIdentifier(`${mapName}_${path}`);
     const zodSchema = schemaToZod(schema);
 
-    write(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
+    await write(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
     pathToSchemaMap.set(path, schemaName);
   }
 
-  write(`const ${mapName} = lazyObject(() => ({`);
+  await write(`const ${mapName} = lazyObject(() => ({`);
   for (const [scriptPath, schemaName] of pathToSchemaMap) {
-    write(`${JSON.stringify(scriptPath)}: ${schemaName},`);
+    await write(`${JSON.stringify(scriptPath)}: ${schemaName},`);
   }
-  write("} as const))");
+  await write("} as const))");
 };
 
 export type SchemaToZodOptions = {

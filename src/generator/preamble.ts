@@ -20,8 +20,8 @@ const preamble = dedent`
   }
 `;
 
-export const writePreamble = () => {
+export const writePreamble = async () => {
   const { write } = getContext()!;
 
-  write(preamble);
+  await write(preamble);
 };

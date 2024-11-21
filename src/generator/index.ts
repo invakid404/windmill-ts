@@ -9,8 +9,9 @@ import { runWithBuffer } from "./common.js";
 
 export const generate = async (output: Writable) => {
   const allResourceTypes = await listResourceTypes();
+
   return run(output, allResourceTypes, async () => {
-    writePreamble();
+    await writePreamble();
 
     const results = await Promise.all(
       [generateResources, generateScripts, generateFlows].map((fn) =>

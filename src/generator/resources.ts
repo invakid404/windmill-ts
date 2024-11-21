@@ -22,7 +22,7 @@ const preamble = dedent`
 export const generateResources = async () => {
   const { write, allResourceTypes } = getContext()!;
 
-  write(preamble);
+  await write(preamble);
 
   const resourcesByType = new Map<string, string[]>();
   for await (const {
@@ -45,35 +45,37 @@ export const generateResources = async () => {
       resourceTypeToSchema: resourceTypeSchemaName,
     });
 
-    write(`const ${typeSchemaName} = lazyObject(() => ${resourceTypeSchema});`);
+    await write(
+      `const ${typeSchemaName} = lazyObject(() => ${resourceTypeSchema});`,
+    );
 
     const referencesSchemaName = resourceReferencesSchemaName(
       resourceType.name,
     );
     const referencesSchema = schemaToZod(makeReferencesSchema(paths));
 
-    write(
+    await write(
       `const ${referencesSchemaName} = lazyObject(() => ${referencesSchema});`,
     );
   }
 
-  write(`const ${resourceToTypeMap} = lazyObject(() => ({`);
+  await write(`const ${resourceToTypeMap} = lazyObject(() => ({`);
   for (const [resourceTypeName, paths] of resourcesByType) {
     const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
     for (const path of paths) {
-      write(`${JSON.stringify(path)}: ${typeSchemaName},`);
+      await write(`${JSON.stringify(path)}: ${typeSchemaName},`);
     }
   }
-  write(`} as const));`);
+  await write(`} as const));`);
 
-  write("export type ResourceTypes = {");
+  await write("export type ResourceTypes = {");
   for (const resourceTypeName of [...resourcesByType.keys()].toSorted()) {
     const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
-    write(
+    await write(
       `${JSON.stringify(resourceTypeName)}: z.infer<typeof ${typeSchemaName}>,`,
     );
   }
-  write("}");
+  await write("}");
 };
 
 export const resourceReferencesSchemaName = (resourceType: string) =>
