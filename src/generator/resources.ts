@@ -65,6 +65,15 @@ export const generateResources = async () => {
     }
   }
   write(`} as const));`);
+
+  write("export type ResourceTypes = {");
+  for (const resourceTypeName of [...resourcesByType.keys()].toSorted()) {
+    const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
+    write(
+      `${JSON.stringify(resourceTypeName)}: z.infer<typeof ${typeSchemaName}>,`,
+    );
+  }
+  write("}");
 };
 
 export const resourceReferencesSchemaName = (resourceType: string) =>
