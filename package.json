@@ -25,6 +25,7 @@
     "ora": "^8.1.1",
     "p-queue": "^8.0.1",
     "to-valid-identifier": "^0.1.1",
+    "ts-morph": "^24.0.0",
     "windmill-client": "^1.422.0",
     "zod": "^3.23.8"
   },
@@ -36,5 +37,8 @@
     "url": "https://github.com/invakid404/windmill-ts/issues"
   },
   "homepage": "https://github.com/invakid404/windmill-ts#readme",
-  "files": ["dist", "README.md"]
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }
