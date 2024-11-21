@@ -1,4 +1,5 @@
 import { Writable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { writePreamble } from "./preamble.js";
 import { run } from "./context.js";
 import { listResourceTypes } from "../windmill/resourceTypes.js";
@@ -19,8 +20,8 @@ export const generate = async (output: Writable) => {
       ),
     );
 
-    results.forEach(({ buffer }) => {
-      buffer.pipe(output);
-    });
+    for (const { buffer } of results) {
+      await pipeline(buffer, output, { end: false });
+    }
   });
 };

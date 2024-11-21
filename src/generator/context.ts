@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Writable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { ResourceTypes } from "../windmill/resourceTypes.js";
 import { InMemoryDuplex } from "../utils/inMemoryDuplex.js";
 
@@ -16,9 +17,9 @@ export const run = async <T,>(
   allResourceTypes: ResourceTypes,
   cb: () => T,
 ) => {
-  const write = (content: string) =>
+  const write = (content: string, stream = output) =>
     new Promise<void>((resolve, reject) =>
-      output.write(content + "\n", (err) => {
+      stream.write(content + "\n", (err) => {
         if (err != null) {
           return void reject(err);
         }
@@ -48,9 +49,11 @@ export const run = async <T,>(
 
     // NOTE: in order to avoid the output being dependent on the write order,
     //       deferred writes are sorted before written to the output
-    buffer.write(deferredWrites.sort().join("\n"));
-    buffer.pipe(output);
+    await write(deferredWrites.sort().join("\n"), buffer);
+    await pipeline(buffer, output, { end: false });
   }
+
+  await new Promise<void>((resolve) => output.end(() => resolve()));
 
   return result;
 };
