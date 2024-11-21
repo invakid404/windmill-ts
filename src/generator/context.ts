@@ -28,6 +28,9 @@ export const run = async <T,>(
       }),
     );
 
+  const end = (stream: Writable) =>
+    new Promise<void>((resolve) => stream.end(() => resolve()));
+
   const deferredWrites: string[] = [];
 
   // NOTE: if we're running in a nested context, we want to lift deferred
@@ -50,10 +53,12 @@ export const run = async <T,>(
     // NOTE: in order to avoid the output being dependent on the write order,
     //       deferred writes are sorted before written to the output
     await write(deferredWrites.sort().join("\n"), buffer);
+    await end(buffer);
+
     await pipeline(buffer, output, { end: false });
   }
 
-  await new Promise<void>((resolve) => output.end(() => resolve()));
+  await end(output);
 
   return result;
 };
