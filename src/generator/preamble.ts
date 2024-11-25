@@ -14,7 +14,12 @@ const preamble = dedent`
           instance = fn();
         }
 
-        return (instance as never)[prop];
+        let value = (instance as never)[prop];
+        if (value instanceof Function) {
+          value = value.bind(instance);
+        }
+
+        return value;
       }
     }) as T;
   }
