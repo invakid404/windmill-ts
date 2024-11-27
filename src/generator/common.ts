@@ -75,6 +75,16 @@ export const schemaToZod = (
         delete schema.default;
       }
 
+      // NOTE: Windmill sometimes has invalid default values on enum schemas,
+      //       which causes the generated code to error during compilation
+      if (
+        schema.enum != null &&
+        "default" in schema &&
+        !schema.enum.includes(schema.default)
+      ) {
+        delete schema.default;
+      }
+
       // NOTE: Windmill sometimes has `enum: null` on string fields, and the
       //       library doesn't like that, so we need to delete it
       if (schema.type === "string" && schema.enum == null) {
