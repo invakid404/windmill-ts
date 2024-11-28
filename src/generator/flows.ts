@@ -24,6 +24,12 @@ const preamble = dedent`
 
     return wmill.runFlowAsync(flowPath, schema.parse(args));
   };
+
+  export const getFlowArgsSchema = <Path extends keyof typeof ${mapName}>(
+    flowPath: Path
+  ) => {
+    return ${mapName}[flowPath];
+  }
 `;
 
 export const generateFlows = async () => {

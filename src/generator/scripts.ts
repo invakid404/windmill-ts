@@ -24,6 +24,12 @@ const preamble = dedent`
 
     return wmill.runScriptAsync(scriptPath, null, schema.parse(args));
   };
+
+  export const getScriptArgsSchema = <Path extends keyof typeof ${mapName}>(
+    scriptPath: Path
+  ) => {
+    return ${mapName}[scriptPath];
+  }
 `;
 
 export const generateScripts = async () => {
