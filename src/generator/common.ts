@@ -8,6 +8,7 @@ import {
   resourceTypeSchemaName,
 } from "./resources.js";
 import { once } from "../utils/once.js";
+import dedent from "dedent";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
   const { allResourceTypes } = getContext()!;
@@ -89,8 +90,10 @@ export const schemaToZod = (
       //       library doesn't like that, so we need to delete it
       if (schema.type === "string" && schema.enum == null) {
         delete schema.enum;
+      }
 
-        return;
+      if (schema.type === 'string' && 'contentEncoding' in schema && schema.contentEncoding === 'base64') {
+        return base64FileZodSchema();
       }
 
       const resourceTypeOrFalse = extractResourceTypeFromSchema(
@@ -122,6 +125,33 @@ export const schemaToZod = (
 const resourceTypeToUnion = (resourceType: string) => {
   return `z.union([${resourceReferencesSchemaName(resourceType)}, ${resourceTypeSchemaName(resourceType)}])`;
 };
+
+const base64FileZodSchema = once(() => {
+  const { deferWrite } = getContext()!;
+  const name = `$base64_file_type`;
+
+  const schema = dedent`
+    z.union([
+      z.string().base64(),
+      z.string().refine(
+        (value) => {
+          const base64Match = value.match(/^data:(.*?);base64,(.+)$/);
+          if (!base64Match) {
+            return false;
+          }
+          const [, mimeType, data] = base64Match;
+          if (!mimeType) {
+            return false;
+          }
+          return z.string().base64().safeParse(data).success;
+        },
+      ),
+    ])
+  `
+  deferWrite(`const ${name} = ${schema};`);
+
+  return name;
+});
 
 const s3ObjectZodSchema = once(() => {
   const { deferWrite } = getContext()!;
