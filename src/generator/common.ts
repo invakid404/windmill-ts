@@ -92,8 +92,20 @@ export const schemaToZod = (
         delete schema.enum;
       }
 
-      if (schema.type === 'string' && 'contentEncoding' in schema && schema.contentEncoding === 'base64') {
+      if (
+        schema.type === "string" &&
+        "contentEncoding" in schema &&
+        schema.contentEncoding === "base64"
+      ) {
         return base64FileZodSchema();
+      }
+
+      if (
+        schema.type === "object" &&
+        (schema.properties == null ||
+          Object.keys(schema.properties).length === 0)
+      ) {
+        schema.additionalProperties = true;
       }
 
       const resourceTypeOrFalse = extractResourceTypeFromSchema(
@@ -147,7 +159,7 @@ const base64FileZodSchema = once(() => {
         },
       ),
     ])
-  `
+  `;
   deferWrite(`const ${name} = ${schema};`);
 
   return name;
