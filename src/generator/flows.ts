@@ -16,13 +16,23 @@ const preamble = dedent`
     return wmill.runFlow(flowPath, schema.parse(args));
   };
 
+  type RunFlowAsyncOptions = {
+    detached?: boolean;
+  };
+
   export const runFlowAsync = <Path extends keyof typeof ${mapName}>(
     flowPath: Path,
     args: z.input<(typeof ${mapName})[Path]>,
+    options?: RunFlowAsyncOptions,
   ) => {
+    const { detached = false } = options ?? {};
     const schema = ${mapName}[flowPath];
 
-    return wmill.runFlowAsync(flowPath, schema.parse(args));
+    const runner = detached
+      ? runDetached
+      : <T extends unknown>(cb: () => Promise<T>) => cb();
+
+    return runner(() => wmill.runFlowAsync(flowPath, schema.parse(args)));
   };
 
   export const getFlowArgsSchema = <Path extends keyof typeof ${mapName}>(

@@ -27,6 +27,19 @@ const preamble = dedent`
       }
     }) as T;
   }
+
+  export const runDetached = async <T extends unknown>(cb: () => Promise<T>) => {
+    const originalRootFlowJobId = process.env["WM_ROOT_FLOW_JOB_ID"];
+    delete (process.env as Record<string, string | undefined>)[
+      "WM_ROOT_FLOW_JOB_ID"
+    ];
+
+    const result = await cb();
+
+    process.env["WM_ROOT_FLOW_JOB_ID"] = originalRootFlowJobId!;
+
+    return result;
+  };
 `;
 
 export const writePreamble = async () => {

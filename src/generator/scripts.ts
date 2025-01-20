@@ -16,13 +16,23 @@ const preamble = dedent`
     return wmill.runScript(scriptPath, null, schema.parse(args));
   };
 
+  type RunScriptAsyncOptions = {
+    detached?: boolean;
+  };
+
   export const runScriptAsync = <Path extends keyof typeof ${mapName}>(
     scriptPath: Path,
     args: z.input<(typeof ${mapName})[Path]>,
+    options?: RunScriptAsyncOptions,
   ) => {
+    const { detached = false } = options ?? {};
     const schema = ${mapName}[scriptPath];
 
-    return wmill.runScriptAsync(scriptPath, null, schema.parse(args));
+    const runner = detached
+      ? runDetached
+      : <T extends unknown>(cb: () => Promise<T>) => cb();
+
+    return runner(() => wmill.runScriptAsync(scriptPath, null, schema.parse(args)));
   };
 
   export const getScriptArgsSchema = <Path extends keyof typeof ${mapName}>(
