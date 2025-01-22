@@ -23,7 +23,7 @@ const subtasks = {
 } as const satisfies Record<string, (observer: Observer) => Promise<void>>;
 
 type ListrContext = {
-  results: Array<Awaited<ReturnType<typeof runWithBuffer>>>;
+  results: Array<ReturnType<typeof runWithBuffer>>;
 };
 
 export const generate = async (output: Writable, options?: GenerateOptions) => {
@@ -40,10 +40,8 @@ export const generate = async (output: Writable, options?: GenerateOptions) => {
           title: name,
           task: (ctx) =>
             new Observable((subscriber) => {
-              runWithBuffer(() => fn(subscriber)).then((result) => {
-                ctx.results ??= [];
-                ctx.results[idx] = result;
-              });
+              ctx.results ??= [];
+              ctx.results[idx] = runWithBuffer(() => fn(subscriber));
             }),
           rendererOptions: {
             persistentOutput: true,
@@ -53,7 +51,8 @@ export const generate = async (output: Writable, options?: GenerateOptions) => {
       { concurrent: true },
     );
 
-    const { results } = await tasks.run();
+    const ctx = await tasks.run();
+    const results = await Promise.all(ctx.results);
 
     for (const { buffer } of results) {
       await pipeline(buffer, output, { end: false });
