@@ -9,6 +9,7 @@ import {
 } from "./resources.js";
 import { once } from "../utils/once.js";
 import dedent from "dedent";
+import type { Observer } from "./index.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
   const { allResourceTypes } = getContext()!;
@@ -27,33 +28,45 @@ export type ResourceWithSchema = {
 export type GenerateSchemasOptions = {
   generator: AsyncGenerator<ResourceWithSchema>;
   mapName: string;
+  observer: Observer;
 };
 
 export const generateSchemas = async ({
   generator,
   mapName,
+  observer,
 }: GenerateSchemasOptions) => {
   const { write } = getContext()!;
 
-  const pathToSchemaMap = new Map<string, string>();
+  try {
+    const pathToSchemaMap = new Map<string, string>();
 
-  for await (const { path, schema } of generator) {
-    if (schema == null) {
-      continue;
+    observer.next("Fetching resources...");
+    for await (const { path, schema } of generator) {
+      if (schema == null) {
+        continue;
+      }
+
+      const schemaName = toValidIdentifier(`${mapName}_${path}`);
+      const zodSchema = schemaToZod(schema);
+
+      await write(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
+      pathToSchemaMap.set(path, schemaName);
     }
 
-    const schemaName = toValidIdentifier(`${mapName}_${path}`);
-    const zodSchema = schemaToZod(schema);
+    observer.next("Generating schemas...");
+    await write(`const ${mapName} = lazyObject(() => ({`);
+    for (const [scriptPath, schemaName] of pathToSchemaMap) {
+      await write(`${JSON.stringify(scriptPath)}: ${schemaName},`);
+    }
+    await write("} as const))");
 
-    await write(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
-    pathToSchemaMap.set(path, schemaName);
+    observer.next("Done");
+  } catch (err) {
+    observer.error(err);
+  } finally {
+    observer.complete();
   }
-
-  await write(`const ${mapName} = lazyObject(() => ({`);
-  for (const [scriptPath, schemaName] of pathToSchemaMap) {
-    await write(`${JSON.stringify(scriptPath)}: ${schemaName},`);
-  }
-  await write("} as const))");
 };
 
 export type SchemaToZodOptions = {

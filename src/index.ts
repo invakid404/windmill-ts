@@ -6,7 +6,6 @@ import { setup } from "./windmill/client.js";
 import { getActiveWorkspaceName, getWorkspace } from "./windmill/workspace.js";
 import { generate } from "./generator/index.js";
 import * as fs from "node:fs";
-import ora, { Ora } from "ora";
 import chalk from "chalk";
 
 const program = new Command();
@@ -51,18 +50,7 @@ program
 
     const stream = isStdout ? process.stdout : fs.createWriteStream(output);
 
-    let spinner: Ora | null = null;
-    if (!isStdout) {
-      spinner = ora("Generating...").start();
-    }
-
-    await generate(stream);
-
-    spinner?.stop();
-
-    if (!isStdout) {
-      console.error(chalk.green("🚀 Done!"));
-    }
+    await generate(stream, { spinners: !isStdout });
   });
 
 program.parse();

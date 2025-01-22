@@ -22,8 +22,9 @@
     "commander": "^12.1.0",
     "dedent": "^1.5.3",
     "json-schema-to-zod": "^2.4.1",
-    "ora": "^8.1.1",
+    "listr2": "^8.2.5",
     "p-queue": "^8.0.1",
+    "rxjs": "^7.8.1",
     "to-valid-identifier": "^0.1.1",
     "windmill-client": "^1.422.0",
     "zod": "^3.23.8"
@@ -36,5 +37,8 @@
     "url": "https://github.com/invakid404/windmill-ts/issues"
   },
   "homepage": "https://github.com/invakid404/windmill-ts#readme",
-  "files": ["dist", "README.md"]
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

@@ -1,10 +1,10 @@
 import toValidIdentifier from "to-valid-identifier";
-import PQueue from "p-queue";
 import { listResources } from "../windmill/resources.js";
 import type { JSONSchema } from "./types.js";
 import { getContext } from "./context.js";
 import { schemaToZod } from "./common.js";
 import dedent from "dedent";
+import type { Observer } from "./index.js";
 
 const resourceToTypeMap = "resourceToType";
 
@@ -19,11 +19,12 @@ const preamble = dedent`
   }
 `;
 
-export const generateResources = async () => {
+export const generateResources = async (observer: Observer) => {
   const { write, allResourceTypes } = getContext()!;
 
   await write(preamble);
 
+  observer.next("Fetching all resources...");
   const resourcesByType = new Map<string, string[]>();
   for await (const {
     resource_type: resourceTypeName,
@@ -37,6 +38,7 @@ export const generateResources = async () => {
     resourcesByType.set(resourceTypeName, [...paths, path]);
   }
 
+  observer.next("Generating schemas...");
   for (const [resourceTypeName, paths] of resourcesByType) {
     const resourceType = allResourceTypes[resourceTypeName]!;
 
@@ -76,6 +78,9 @@ export const generateResources = async () => {
     );
   }
   await write("}");
+
+  observer.next("Done");
+  observer.complete();
 };
 
 export const resourceReferencesSchemaName = (resourceType: string) =>
