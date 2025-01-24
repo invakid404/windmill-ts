@@ -40,6 +40,8 @@ const preamble = dedent`
   ) => {
     return ${mapName}[flowPath];
   }
+
+  export type FlowPath = keyof typeof ${mapName};
 `;
 
 export const generateFlows = async (observer: Observer) => {

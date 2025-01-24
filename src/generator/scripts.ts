@@ -39,7 +39,9 @@ const preamble = dedent`
     scriptPath: Path
   ) => {
     return ${mapName}[scriptPath];
-  }
+  };
+
+  export type ScriptPath = keyof typeof ${mapName};
 `;
 
 export const generateScripts = async (observer: Observer) => {
