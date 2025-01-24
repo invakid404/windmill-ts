@@ -17,6 +17,7 @@ const preamble = dedent`
   };
 
   type RunScriptAsyncOptions = {
+    scheduledFor?: Date | null;
     detached?: boolean;
   };
 
@@ -25,14 +26,25 @@ const preamble = dedent`
     args: z.input<(typeof ${mapName})[Path]>,
     options?: RunScriptAsyncOptions,
   ) => {
-    const { detached = false } = options ?? {};
+    const { scheduledFor, detached = false } = options ?? {};
     const schema = ${mapName}[scriptPath];
 
     const runner = detached
       ? runDetached
       : <T extends unknown>(cb: () => Promise<T>) => cb();
 
-    return runner(() => wmill.runScriptAsync(scriptPath, null, schema.parse(args)));
+    const scheduledInSeconds = Math.ceil(
+      Math.max((scheduledFor?.getTime() ?? 0) - Date.now(), 0) / 1000,
+    );
+
+    return runner(() =>
+      wmill.runScriptAsync(
+        scriptPath,
+        null,
+        schema.parse(args),
+        scheduledInSeconds,
+      ),
+    );
   };
 
   export const getScriptArgsSchema = <Path extends keyof typeof ${mapName}>(
