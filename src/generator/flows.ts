@@ -17,6 +17,7 @@ const preamble = dedent`
   };
 
   type RunFlowAsyncOptions = {
+    scheduledFor?: Date | null;
     detached?: boolean;
   };
 
@@ -25,14 +26,20 @@ const preamble = dedent`
     args: z.input<(typeof ${mapName})[Path]>,
     options?: RunFlowAsyncOptions,
   ) => {
-    const { detached = false } = options ?? {};
+    const { scheduledFor, detached = false } = options ?? {};
     const schema = ${mapName}[flowPath];
 
     const runner = detached
       ? runDetached
       : <T extends unknown>(cb: () => Promise<T>) => cb();
 
-    return runner(() => wmill.runFlowAsync(flowPath, schema.parse(args)));
+    const scheduledInSeconds = Math.ceil(
+      Math.max((scheduledFor?.getTime() ?? 0) - Date.now(), 0) / 1000,
+    );
+
+    return runner(
+      () => wmill.runFlowAsync(flowPath, schema.parse(args), scheduledInSeconds)
+    );
   };
 
   export const getFlowArgsSchema = <Path extends keyof typeof ${mapName}>(
