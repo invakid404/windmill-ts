@@ -7,7 +7,7 @@ import { generateScripts } from "./scripts.js";
 import { generateResources } from "./resources.js";
 import { generateFlows } from "./flows.js";
 import { runWithBuffer } from "./common.js";
-import { Listr } from "listr2";
+import { Listr, SilentRenderer } from "listr2";
 import { Observable, Subscriber } from "rxjs";
 
 export type Observer = Subscriber<string>;
@@ -34,11 +34,11 @@ export const generate = async (output: Writable, options?: GenerateOptions) => {
   return run(output, allResourceTypes, async () => {
     await writePreamble();
 
-    const tasks = new Listr<ListrContext>(
+    const tasks = new Listr(
       Object.entries(subtasks).map(([name, fn], idx) => {
         return {
           title: name,
-          task: (ctx) =>
+          task: (ctx: ListrContext) =>
             new Observable((subscriber) => {
               ctx.results ??= [];
               ctx.results[idx] = runWithBuffer(() => fn(subscriber));
@@ -48,7 +48,7 @@ export const generate = async (output: Writable, options?: GenerateOptions) => {
           },
         };
       }),
-      { concurrent: true },
+      { concurrent: true, renderer: spinners ? "default" : "silent" },
     );
 
     const ctx = await tasks.run();
