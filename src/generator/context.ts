@@ -2,11 +2,13 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { PassThrough, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { ResourceTypes } from "../windmill/resourceTypes.js";
+import { getConfig, type Config } from "../config/index.js";
 
 type GenerateContext = {
   write: (content: string) => Promise<void>;
   deferWrite: (content: string) => void;
   allResourceTypes: ResourceTypes;
+  config: Config;
 };
 
 const generateStore = new AsyncLocalStorage<GenerateContext>();
@@ -41,7 +43,7 @@ export const run = async <T,>(
     });
 
   const result = await generateStore.run(
-    { write, deferWrite, allResourceTypes },
+    { write, deferWrite, allResourceTypes, config: await getConfig() },
     cb,
   );
 

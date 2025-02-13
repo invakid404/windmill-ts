@@ -54,7 +54,9 @@ export const generateResources = async (observer: Observer) => {
     const referencesSchemaName = resourceReferencesSchemaName(
       resourceType.name,
     );
-    const referencesSchema = schemaToZod(makeReferencesSchema(paths));
+    const referencesSchema = schemaToZod(
+      makeReferencesSchema(resourceType.name, paths),
+    );
 
     await write(
       `const ${referencesSchemaName} = lazyObject(() => ${referencesSchema});`,
@@ -89,12 +91,31 @@ export const resourceReferencesSchemaName = (resourceType: string) =>
 export const resourceTypeSchemaName = (resourceType: string) =>
   toValidIdentifier(`${resourceType}_type`);
 
-const makeReferencesSchema = (paths: string[]) => {
+const makeReferencesSchema = (resourceType: string, paths: string[]) => {
+  const { config } = getContext()!;
+
   const refs = paths.map((path) => `$res:${path}`);
+
+  let defaultForType =
+    resourceType in config.resources.defaults
+      ? config.resources.defaults[resourceType]
+      : refs.length === 1
+        ? refs[0]
+        : undefined;
+
+  if (defaultForType != null && !defaultForType.startsWith("$res:")) {
+    defaultForType = `$res:${defaultForType}`;
+  }
+
+  if (defaultForType != null && !refs.includes(defaultForType)) {
+    throw new Error(
+      `Default for resource type ${resourceType} is not valid: ${defaultForType} not found in resources`,
+    );
+  }
 
   return {
     type: "string",
     enum: refs,
-    ...(refs.length === 1 && { default: refs[0] }),
+    ...(defaultForType != null && { default: defaultForType }),
   } satisfies JSONSchema;
 };

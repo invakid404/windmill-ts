@@ -7,13 +7,24 @@ import { getActiveWorkspaceName, getWorkspace } from "./windmill/workspace.js";
 import { generate } from "./generator/index.js";
 import * as fs from "node:fs";
 import chalk from "chalk";
+import { getConfig } from "./config/index.js";
 
 const program = new Command();
 
 program
   .name("windmill-ts")
   .description("Type-safe Windmill client for TypeScript")
-  .version(packageJSON.version);
+  .version(packageJSON.version)
+  .hook("preAction", async () => {
+    const config = await getConfig();
+
+    if (!config.scripts.enabled) {
+      console.warn(chalk.yellow("⚠️ Script generation is disabled in config"));
+    }
+    if (!config.flows.enabled) {
+      console.warn(chalk.yellow("⚠️ Flow generation is disabled in config"));
+    }
+  });
 
 program
   .command("generate", { isDefault: true })
@@ -50,7 +61,9 @@ program
 
     const stream = isStdout ? process.stdout : fs.createWriteStream(output);
 
-    await generate(stream, { spinners: !isStdout });
+    await generate(stream, {
+      spinners: !isStdout,
+    });
   });
 
 program.parse();
