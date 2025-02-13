@@ -55,6 +55,42 @@ To output to stdout instead of a file, use `-` as the output path:
 npx windmill-ts -
 ```
 
+## Configuration
+
+windmill-ts can be configured using a YAML configuration file. The configuration file can be named either `windmill-ts.yaml` or `windmill-ts.yml` and should be placed in your project root directory.
+
+The configuration file supports the following options:
+
+```yaml
+# Resource configuration
+resources:
+  # Map of resource type to default resource path
+  # By default, if there is only one resource of a given type,
+  # it will be set as the default implicitly.
+  # You can override this behavior by:
+  # 1. Setting a specific resource path as the default
+  # 2. Setting null to disable the implicit default behavior
+  defaults:
+    # Override the default for "postgresql" resources to always use this path
+    postgresql: "f/prod/postgresql"
+    # Disable implicit default for "s3" resources even if there's only one
+    s3: null
+    # Set a specific default for "mysql" resources
+    mysql: "f/dev/mysql"
+
+# Script generation configuration
+scripts:
+  # Whether to generate script-related code (default: true)
+  enabled: true
+
+# Flow generation configuration
+flows:
+  # Whether to generate flow-related code (default: true)
+  enabled: true
+```
+
+The configuration file is optional. If not provided, windmill-ts will use default values. For resources, this means that when there is exactly one resource of a given type, it will be set as the default implicitly. You can override this behavior in the configuration file by either specifying a different default path or setting it to `null` to disable the implicit default behavior.
+
 ## Generated Client Usage
 
 The generated client provides type-safe functions for running scripts and flows,
