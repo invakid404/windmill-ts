@@ -184,7 +184,7 @@ const base64FileZodSchema = once(() => {
 
 const s3ObjectZodSchema = once(() => {
   const { deferWrite } = getContext()!;
-  const name = `$s3_object_type`;
+  const name = `S3ObjectSchema`;
 
   const jsonSchema = {
     type: "object",
@@ -205,7 +205,7 @@ const s3ObjectZodSchema = once(() => {
   } satisfies JSONSchema;
 
   const schema = jsonSchemaToZod(jsonSchema);
-  deferWrite(`const ${name} = ${schema};`);
+  deferWrite(`export const ${name} = ${schema};`);
 
   return name;
 });
