@@ -125,6 +125,22 @@ export const schemaToZod = (
         schema.additionalProperties = true;
       }
 
+      // Map dynamic enums back to their original type
+      if (schema.type === "object" && schema.format?.startsWith("dynselect-")) {
+        const originalType =
+          "originalType" in schema &&
+          typeof schema.originalType === "string" &&
+          schema.originalType;
+
+        if (originalType) {
+          schema.type = originalType;
+        } else {
+          // If no original type in the schema, we cannot infer anything, so
+          // we must mark it as `any` by deleting its type
+          delete schema.type;
+        }
+      }
+
       const resourceTypeOrFalse = extractResourceTypeFromSchema(
         schema as never,
       );
