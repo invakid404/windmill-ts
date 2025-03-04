@@ -73,7 +73,7 @@ export const loadConfig = async (cwd: string) => {
     const contents = await readFile(configPath, "utf-8");
     const parsed = parse(contents);
 
-    return { ...ConfigSchema.parse(parsed), configPath } as const;
+    return { ...ConfigSchema.parse(parsed ?? {}), configPath };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return { ...ConfigSchema.parse({}), configPath: null };
