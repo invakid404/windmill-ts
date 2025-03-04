@@ -29,10 +29,9 @@ const preamble = dedent`
     do(value: (typeof this)["arg"]): unknown;
   }
 
-  export type ApplyTransformer<
-    T extends { new (): Transformer },
-    Arg,
-  > = ReturnType<(InstanceType<T> & { arg: Arg })["do"]>;
+  export type ApplyTransformer<T extends { new (): Transformer }, Arg> = Awaited<
+    ReturnType<(InstanceType<T> & { arg: Arg })["do"]>
+  >;
 
   export const getResource = async <Path extends keyof typeof ${resourceToTypeMap}>(
     path: Path,
