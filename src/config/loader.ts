@@ -67,18 +67,20 @@ export const loadConfig = async (cwd: string) => {
     const configPath = await findNearestConfig(cwd);
 
     if (!configPath) {
-      return ConfigSchema.parse({});
+      return { ...ConfigSchema.parse({}), configPath: null };
     }
 
     const contents = await readFile(configPath, "utf-8");
     const parsed = parse(contents);
 
-    return { ...ConfigSchema.parse(parsed), configPath };
+    return { ...ConfigSchema.parse(parsed), configPath } as const;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return ConfigSchema.parse({});
+      return { ...ConfigSchema.parse({}), configPath: null };
     }
 
     throw error;
   }
 };
+
+export type Config = Awaited<ReturnType<typeof loadConfig>>;

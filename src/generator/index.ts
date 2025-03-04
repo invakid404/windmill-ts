@@ -9,8 +9,7 @@ import { generateFlows } from "./flows.js";
 import { runWithBuffer } from "./common.js";
 import { Listr } from "listr2";
 import { Observable, Subscriber } from "rxjs";
-import { Config } from "../config/schema.js";
-import { getConfig } from "../config/index.js";
+import { Config, getConfig } from "../config/index.js";
 
 export type Observer = Subscriber<string>;
 

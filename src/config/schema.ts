@@ -38,5 +38,3 @@ export const ConfigSchema = z
     flows: FlowOptionsSchema,
   })
   .default({});
-
-export type Config = z.infer<typeof ConfigSchema>;
