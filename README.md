@@ -57,7 +57,9 @@ npx windmill-ts -
 
 ## Configuration
 
-windmill-ts can be configured using a YAML configuration file. The configuration file can be named either `windmill-ts.yaml` or `windmill-ts.yml` and should be placed in your project root directory.
+windmill-ts can be configured using a YAML configuration file. The configuration
+file can be named either `windmill-ts.yaml` or `windmill-ts.yml` and should be
+placed in your project root directory.
 
 The configuration file supports the following options:
 
@@ -78,6 +80,15 @@ resources:
     # Set a specific default for "mysql" resources
     mysql: "f/dev/mysql"
 
+  # Optional transformer configuration for customizing resource handling
+  transformer:
+    # Import path for the transformer, relative to the config
+    importPath: "./transformer"
+    # Name of the exported transformer
+    importName: "ResourceTransformer"
+    # Optional extension to append to the import (e.g., ".ts" or ".js")
+    importExtension: ".js"
+
 # Script generation configuration
 scripts:
   # Whether to generate script-related code (default: true)
@@ -89,7 +100,12 @@ flows:
   enabled: true
 ```
 
-The configuration file is optional. If not provided, windmill-ts will use default values. For resources, this means that when there is exactly one resource of a given type, it will be set as the default implicitly. You can override this behavior in the configuration file by either specifying a different default path or setting it to `null` to disable the implicit default behavior.
+The configuration file is optional. If not provided, windmill-ts will use
+default values. For resources, this means that when there is exactly one
+resource of a given type, it will be set as the default implicitly. You can
+override this behavior in the configuration file by either specifying a
+different default path or setting it to `null` to disable the implicit default
+behavior.
 
 ## Generated Client Usage
 
