@@ -42,14 +42,18 @@ type ListrContext = {
   results: Array<ReturnType<typeof runWithBuffer>>;
 };
 
-export const generate = async (output: Writable, options?: GenerateOptions) => {
+export const generate = async (
+  output: Writable,
+  outputDir: string,
+  options?: GenerateOptions,
+) => {
   const { spinners = false } = options ?? {};
 
   const config = await getConfig();
 
   const allResourceTypes = await listResourceTypes();
 
-  return run(output, allResourceTypes, async () => {
+  return run(output, outputDir, allResourceTypes, async () => {
     await writePreamble();
 
     const tasks = new Listr(

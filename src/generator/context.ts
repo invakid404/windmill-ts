@@ -9,12 +9,14 @@ type GenerateContext = {
   deferWrite: (content: string) => void;
   allResourceTypes: ResourceTypes;
   config: Config;
+  outputDir: string;
 };
 
 const generateStore = new AsyncLocalStorage<GenerateContext>();
 
 export const run = async <T,>(
   output: Writable,
+  outputDir: string,
   allResourceTypes: ResourceTypes,
   cb: () => T,
 ) => {
@@ -43,7 +45,13 @@ export const run = async <T,>(
     });
 
   const result = await generateStore.run(
-    { write, deferWrite, allResourceTypes, config: await getConfig() },
+    {
+      write,
+      deferWrite,
+      allResourceTypes,
+      config: await getConfig(),
+      outputDir,
+    },
     cb,
   );
 

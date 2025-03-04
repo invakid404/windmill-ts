@@ -8,6 +8,7 @@ import { generate } from "./generator/index.js";
 import * as fs from "node:fs";
 import chalk from "chalk";
 import { getConfig } from "./config/index.js";
+import * as path from "node:path";
 
 const program = new Command();
 
@@ -60,10 +61,15 @@ program
     setup(workspace);
 
     const stream = isStdout ? process.stdout : fs.createWriteStream(output);
+    const cwd = process.cwd();
 
-    await generate(stream, {
-      spinners: !isStdout,
-    });
+    await generate(
+      stream,
+      isStdout ? cwd : path.dirname(path.resolve(cwd, output)),
+      {
+        spinners: !isStdout,
+      },
+    );
   });
 
 program.parse();

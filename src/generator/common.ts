@@ -12,14 +12,14 @@ import dedent from "dedent";
 import type { Observer } from "./index.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
-  const { allResourceTypes } = getContext()!;
+  const { allResourceTypes, outputDir } = getContext()!;
 
   const buffer = new PassThrough({
     // The default limit appears to cause writes to start failing when too
     // many resources of a given type exist; this should be high enough
     highWaterMark: 1024 * 1024,
   });
-  const result = await run(buffer, allResourceTypes, cb);
+  const result = await run(buffer, outputDir, allResourceTypes, cb);
 
   return { buffer, result };
 };
