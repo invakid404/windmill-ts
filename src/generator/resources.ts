@@ -5,10 +5,30 @@ import { getContext } from "./context.js";
 import { schemaToZod } from "./common.js";
 import dedent from "dedent";
 import type { Observer } from "./index.js";
+import * as path from "node:path";
 
 const resourceToTypeMap = "resourceToType";
 
+const resourceTransformerName = "_resourcesTransformer";
+const defaultResourceTransformerName = "_DefaultResourceTransformer";
+
+const defaultResourceTransformer = dedent`
+  class ${defaultResourceTransformerName} implements Transformer {
+    arg: unknown
+    do(value: Cast<(typeof this)["arg"], object>) {
+      return value;
+    }
+  }
+`;
+
 const preamble = dedent`
+  export type Cast<T, U> = T extends U ? T : U;
+
+  export interface Transformer {
+    arg: unknown;
+    do(value: (typeof this)["arg"]): unknown;
+  }
+
   export const getResource = async <Path extends keyof typeof ${resourceToTypeMap}>(
     path: Path,
   ): Promise<z.infer<(typeof ${resourceToTypeMap})[Path]>> => {
@@ -20,8 +40,47 @@ const preamble = dedent`
 `;
 
 export const generateResources = async (observer: Observer) => {
-  const { write, allResourceTypes } = getContext()!;
+  const { write, allResourceTypes, config, outputDir } = getContext()!;
 
+  let transformerPath = config.resources.transformer?.importPath;
+  let transformerName = config.resources.transformer?.importName;
+  const transformerExtension = config.resources.transformer?.importExtension;
+  if (!transformerPath || !transformerName) {
+    transformerName = defaultResourceTransformerName;
+    transformerPath = "";
+
+    await write(defaultResourceTransformer);
+  }
+
+  if (transformerPath) {
+    // Resolve path relative to config dir
+    const configDir = config.configPath
+      ? path.dirname(config.configPath)
+      : process.cwd();
+
+    transformerPath = path.resolve(configDir, transformerPath);
+
+    // Get relative path in relation to output dir
+    transformerPath = path.relative(outputDir, transformerPath);
+    if (
+      !transformerPath.startsWith("./") &&
+      !transformerPath.startsWith("../")
+    ) {
+      transformerPath = `./${transformerPath}`;
+    }
+
+    // Strip extension
+    const extension = path.extname(transformerPath);
+    transformerPath = transformerPath.slice(0, -extension.length);
+  }
+
+  let resourcesTransformerAlias = `const ${resourceTransformerName} = `;
+  if (transformerPath) {
+    resourcesTransformerAlias += `(await import(${JSON.stringify(`${transformerPath}${transformerExtension || ""}`)})).`;
+  }
+  resourcesTransformerAlias += `${transformerName};`;
+
+  await write(resourcesTransformerAlias);
   await write(preamble);
 
   observer.next("Fetching all resources...");
