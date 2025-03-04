@@ -85,13 +85,16 @@ export const generateResources = async (observer: Observer) => {
     transformerPath = transformerPath.slice(0, -extension.length);
   }
 
-  let resourcesTransformerAlias = `const ${resourceTransformerName} = `;
-  if (transformerPath) {
-    resourcesTransformerAlias += `(await import(${JSON.stringify(`${transformerPath}${transformerExtension || ""}`)})).`;
+  if (transformerPath && transformerName) {
+    await write(
+      `import { ${transformerName} as ${resourceTransformerName} } from ${JSON.stringify(`${transformerPath}${transformerExtension}`)};`,
+    );
+  } else {
+    await write(
+      `const ${resourceTransformerName} = ${defaultResourceTransformerName};`,
+    );
   }
-  resourcesTransformerAlias += `${transformerName};`;
 
-  await write(resourcesTransformerAlias);
   await write(preamble);
 
   observer.next("Fetching all resources...");
