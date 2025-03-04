@@ -34,8 +34,11 @@ const preamble = dedent`
   ): Promise<z.infer<(typeof ${resourceToTypeMap})[Path]>> => {
     const schema = ${resourceToTypeMap}[path];
     const data = await wmill.getResource(path);
+    const parsedData = schema.parse(data);
 
-    return schema.parse(data);
+    const transformer = ${resourceTransformerName}.prototype.do;
+
+    return transformer.call({ arg: parsedData }, parsedData);
   }
 `;
 
