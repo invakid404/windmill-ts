@@ -29,16 +29,25 @@ const preamble = dedent`
     do(value: (typeof this)["arg"]): unknown;
   }
 
+  export type ApplyTransformer<
+    T extends { new (): Transformer },
+    Arg,
+  > = ReturnType<(InstanceType<T> & { arg: Arg })["do"]>;
+
   export const getResource = async <Path extends keyof typeof ${resourceToTypeMap}>(
     path: Path,
-  ): Promise<z.infer<(typeof ${resourceToTypeMap})[Path]>> => {
+  ) => {
     const schema = ${resourceToTypeMap}[path];
     const data = await wmill.getResource(path);
     const parsedData = schema.parse(data);
 
     const transformer = ${resourceTransformerName}.prototype.do;
 
-    return transformer.call({ arg: parsedData }, parsedData);
+    return transformer.call({ arg: parsedData }, parsedData) as z.infer<
+      (typeof ${resourceToTypeMap})[Path]
+    > extends infer Resource
+      ? ApplyTransformer<typeof ${resourceTransformerName}, Resource>
+      : never;
   }
 `;
 
