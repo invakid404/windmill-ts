@@ -48,6 +48,11 @@ const preamble = dedent`
         return Reflect.get(target, prop, receiver);
       },
       set: (target, prop, value, receiver) => {
+        if (typeof prop === 'string') {
+          target[prop] = value;
+          return true;
+        }
+
         return Reflect.set(target, prop, value, receiver);
       }
     })
