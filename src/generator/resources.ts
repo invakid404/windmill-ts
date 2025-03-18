@@ -26,7 +26,7 @@ const preamble = dedent`
 
   export interface Transformer {
     arg: unknown;
-    do(value: (typeof this)["arg"]): unknown;
+    do(value: never): unknown;
   }
 
   export type ApplyTransformer<T extends { new (): Transformer }, Arg> = Awaited<
