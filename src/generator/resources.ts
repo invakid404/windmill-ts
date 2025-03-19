@@ -8,6 +8,7 @@ import type { Observer } from "./index.js";
 import * as path from "node:path";
 
 const resourceToTypeMap = "resourceToType";
+const resourceTypesTypeName = "ResourceTypes";
 
 const resourceTransformerName = "_resourcesTransformer";
 const defaultResourceTransformerName = "_DefaultResourceTransformer";
@@ -33,20 +34,43 @@ const preamble = dedent`
     ReturnType<(InstanceType<T> & { arg: Arg })["do"]>
   >;
 
-  export const getResource = async <Path extends keyof typeof ${resourceToTypeMap}>(
-    path: Path,
+  type GetResourceReturnType<Resource> = ApplyTransformer<
+    typeof ${resourceTransformerName},
+    Resource
+  >;
+
+  type GetResource = {
+    <Path extends keyof typeof ${resourceToTypeMap}>(
+      path: Path,
+    ): GetResourceReturnType<z.infer<(typeof ${resourceToTypeMap})[Path]["schema"]>>;
+    <Type extends keyof ${resourceTypesTypeName}>(
+      path: string,
+      resourceType: Type,
+    ): GetResourceReturnType<${resourceTypesTypeName}[Type]>;
+    (path: string, resourceType?: string): object;
+  };
+
+  export const getResource: GetResource = async (
+    path: string,
+    resourceType?: string,
   ) => {
-    const { schema }= ${resourceToTypeMap}[path];
+    if (!(path in ${resourceToTypeMap})) {
+      throw new Error(\`Unknown resource: \${JSON.stringify(path)}\`);
+    }
+  
+    const { name, schema } = ${resourceToTypeMap}[path];
+    if (resourceType != null && name !== resourceType) {
+      throw new Error(
+        \`Unexpected resource type: expected \${JSON.stringify(resourceType)} but resource \${JSON.stringify(path)} has type \${JSON.stringify(name)}\`,
+      );
+    }
+
     const data = await wmill.getResource(path);
     const parsedData = schema.parse(data);
 
     const transformer = ${resourceTransformerName}.prototype.do;
 
-    return transformer.call({ arg: parsedData }, parsedData) as z.infer<
-      (typeof ${resourceToTypeMap})[Path]["schema"]
-    > extends infer Resource
-      ? ApplyTransformer<typeof ${resourceTransformerName}, Resource>
-      : never;
+    return transformer.call({ arg: parsedData }, parsedData);
   }
 `;
 
@@ -150,7 +174,7 @@ export const generateResources = async (observer: Observer) => {
   }
   await write(`} as const));`);
 
-  await write("export type ResourceTypes = {");
+  await write(`export type ${resourceTypesTypeName} = {`);
   for (const resourceTypeName of [...resourcesByType.keys()].toSorted()) {
     const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
     await write(
