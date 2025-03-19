@@ -168,7 +168,7 @@ export const schemaToZod = (
 };
 
 const resourceTypeToUnion = (resourceType: string) => {
-  return `z.union([${resourceReferencesSchemaName(resourceType)}, ${resourceTypeSchemaName(resourceType)}])`;
+  return `z.union([${resourceReferencesSchemaName(resourceType)}, ${resourceTypeSchemaName(resourceType)}.schema])`;
 };
 
 const base64FileZodSchema = once(() => {
