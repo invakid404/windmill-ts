@@ -34,9 +34,8 @@ const preamble = dedent`
     ReturnType<(InstanceType<T> & { arg: Arg })["do"]>
   >;
 
-  type GetResourceReturnType<Resource> = ApplyTransformer<
-    typeof ${resourceTransformerName},
-    Resource
+  type GetResourceReturnType<Resource> = Promise<
+    ApplyTransformer<typeof ${resourceTransformerName}, Resource>
   >;
 
   type GetResource = {
@@ -47,7 +46,7 @@ const preamble = dedent`
       path: string,
       resourceType: Type,
     ): GetResourceReturnType<${resourceTypesTypeName}[Type]>;
-    (path: string, resourceType?: string): object;
+    (path: string, resourceType?: string): Promise<object>;
   };
 
   export const getResource: GetResource = async (
