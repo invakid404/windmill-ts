@@ -1,6 +1,6 @@
 {
   "name": "windmill-ts",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Type-safe client for Windmill",
   "main": "dist/src/index.js",
   "bin": "dist/src/index.js",
