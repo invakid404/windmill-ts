@@ -53,7 +53,7 @@ const preamble = dedent`
     path: string,
     resourceType?: string,
   ) => {
-    if (!(path in ${resourceToTypeMap})) {
+    if (${resourceToTypeMap}[path] == null) {
       throw new Error(\`Unknown resource: \${JSON.stringify(path)}\`);
     }
   
