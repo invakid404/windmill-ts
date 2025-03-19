@@ -36,14 +36,14 @@ const preamble = dedent`
   export const getResource = async <Path extends keyof typeof ${resourceToTypeMap}>(
     path: Path,
   ) => {
-    const schema = ${resourceToTypeMap}[path];
+    const { schema }= ${resourceToTypeMap}[path];
     const data = await wmill.getResource(path);
     const parsedData = schema.parse(data);
 
     const transformer = ${resourceTransformerName}.prototype.do;
 
     return transformer.call({ arg: parsedData }, parsedData) as z.infer<
-      (typeof ${resourceToTypeMap})[Path]
+      (typeof ${resourceToTypeMap})[Path]["schema"]
     > extends infer Resource
       ? ApplyTransformer<typeof ${resourceTransformerName}, Resource>
       : never;
@@ -121,7 +121,12 @@ export const generateResources = async (observer: Observer) => {
     });
 
     await write(
-      `const ${typeSchemaName} = lazyObject(() => ${resourceTypeSchema});`,
+      dedent`
+        const ${typeSchemaName} = lazyObject(() => ({
+          name: ${JSON.stringify(resourceType.name)},
+          schema: ${resourceTypeSchema},
+        }));
+      `,
     );
 
     const referencesSchemaName = resourceReferencesSchemaName(
@@ -149,7 +154,7 @@ export const generateResources = async (observer: Observer) => {
   for (const resourceTypeName of [...resourcesByType.keys()].toSorted()) {
     const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
     await write(
-      `${JSON.stringify(resourceTypeName)}: z.infer<typeof ${typeSchemaName}>,`,
+      `${JSON.stringify(resourceTypeName)}: z.infer<(typeof ${typeSchemaName})["schema"]>,`,
     );
   }
   await write("}");
