@@ -13,6 +13,8 @@ const resourceTypesTypeName = "ResourceTypes";
 const resourceTransformerName = "_resourcesTransformer";
 const defaultResourceTransformerName = "_DefaultResourceTransformer";
 
+const defaultPerResourceTypeMap = "defaultPerResourceType";
+
 const defaultResourceTransformer = dedent`
   class ${defaultResourceTransformerName} implements Transformer {
     arg: unknown
@@ -135,6 +137,9 @@ export const generateResources = async (observer: Observer) => {
   }
 
   observer.next("Generating schemas...");
+
+  const defaultPerResourceType = new Map<string, string>();
+
   for (const [resourceTypeName, paths] of resourcesByType) {
     const resourceType = allResourceTypes[resourceTypeName]!;
 
@@ -162,6 +167,11 @@ export const generateResources = async (observer: Observer) => {
     await write(
       `const ${referencesSchemaName} = lazyObject(() => ${referencesSchema});`,
     );
+
+    const defaultPath = getResourceTypeDefault(resourceTypeName, paths);
+    if (defaultPath != null) {
+      defaultPerResourceType.set(resourceTypeName, defaultPath);
+    }
   }
 
   await write(`const ${resourceToTypeMap} = lazyObject(() => ({`);
@@ -181,6 +191,17 @@ export const generateResources = async (observer: Observer) => {
     );
   }
   await write("}");
+
+  await write(`export const ${defaultPerResourceTypeMap} = {`);
+  for (const [
+    resourceTypeName,
+    defaultPath,
+  ] of defaultPerResourceType.entries()) {
+    await write(
+      `${JSON.stringify(resourceTypeName)}: ${JSON.stringify(defaultPath)},`,
+    );
+  }
+  await write("} as const");
 
   observer.next("Done");
   observer.complete();
