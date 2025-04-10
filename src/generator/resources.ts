@@ -73,6 +73,19 @@ const preamble = dedent`
 
     return transformer.call({ arg: parsedData }, parsedData);
   }
+
+  export const getDefaultResource = <
+    T extends keyof typeof defaultPerResourceType,
+  >(
+    resourceType: T,
+  ) => {
+    const path = ${defaultPerResourceTypeMap}[resourceType];
+    if (path == null) {
+      throw new Error(\`No defaults found for resource type \${resourceType}\`);
+    }
+
+    return getResource(path);
+  }
 `;
 
 export const generateResources = async (observer: Observer) => {
