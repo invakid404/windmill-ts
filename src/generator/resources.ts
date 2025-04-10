@@ -13,6 +13,8 @@ const resourceTypesTypeName = "ResourceTypes";
 const resourceTransformerName = "_resourcesTransformer";
 const defaultResourceTransformerName = "_DefaultResourceTransformer";
 
+const defaultPerResourceTypeMap = "defaultPerResourceType";
+
 const defaultResourceTransformer = dedent`
   class ${defaultResourceTransformerName} implements Transformer {
     arg: unknown
@@ -70,6 +72,19 @@ const preamble = dedent`
     const transformer = ${resourceTransformerName}.prototype.do;
 
     return transformer.call({ arg: parsedData }, parsedData);
+  }
+
+  export const getDefaultResource = <
+    T extends keyof typeof defaultPerResourceType,
+  >(
+    resourceType: T,
+  ) => {
+    const path = ${defaultPerResourceTypeMap}[resourceType];
+    if (path == null) {
+      throw new Error(\`No defaults found for resource type \${resourceType}\`);
+    }
+
+    return getResource(path);
   }
 `;
 
@@ -135,6 +150,9 @@ export const generateResources = async (observer: Observer) => {
   }
 
   observer.next("Generating schemas...");
+
+  const defaultPerResourceType = new Map<string, string>();
+
   for (const [resourceTypeName, paths] of resourcesByType) {
     const resourceType = allResourceTypes[resourceTypeName]!;
 
@@ -162,6 +180,11 @@ export const generateResources = async (observer: Observer) => {
     await write(
       `const ${referencesSchemaName} = lazyObject(() => ${referencesSchema});`,
     );
+
+    const defaultPath = getResourceTypeDefault(resourceTypeName, paths);
+    if (defaultPath != null) {
+      defaultPerResourceType.set(resourceTypeName, defaultPath);
+    }
   }
 
   await write(`const ${resourceToTypeMap} = lazyObject(() => ({`);
@@ -182,6 +205,17 @@ export const generateResources = async (observer: Observer) => {
   }
   await write("}");
 
+  await write(`export const ${defaultPerResourceTypeMap} = {`);
+  for (const [
+    resourceTypeName,
+    defaultPath,
+  ] of defaultPerResourceType.entries()) {
+    await write(
+      `${JSON.stringify(resourceTypeName)}: ${JSON.stringify(defaultPath)},`,
+    );
+  }
+  await write("} as const");
+
   observer.next("Done");
   observer.complete();
 };
@@ -192,18 +226,20 @@ export const resourceReferencesSchemaName = (resourceType: string) =>
 export const resourceTypeSchemaName = (resourceType: string) =>
   toValidIdentifier(`${resourceType}_type`);
 
-const makeReferencesSchema = (resourceType: string, paths: string[]) => {
+const getResourceTypeDefault = (resourceType: string, paths: string[]) => {
   const { config } = getContext()!;
 
+  return resourceType in config.resources.defaults
+    ? config.resources.defaults[resourceType]
+    : paths.length === 1
+      ? paths[0]
+      : null;
+};
+
+const makeReferencesSchema = (resourceType: string, paths: string[]) => {
   const refs = paths.map((path) => `$res:${path}`);
 
-  let defaultForType =
-    resourceType in config.resources.defaults
-      ? config.resources.defaults[resourceType]
-      : refs.length === 1
-        ? refs[0]
-        : undefined;
-
+  let defaultForType = getResourceTypeDefault(resourceType, refs);
   if (defaultForType != null && !defaultForType.startsWith("$res:")) {
     defaultForType = `$res:${defaultForType}`;
   }
