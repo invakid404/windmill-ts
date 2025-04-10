@@ -192,18 +192,20 @@ export const resourceReferencesSchemaName = (resourceType: string) =>
 export const resourceTypeSchemaName = (resourceType: string) =>
   toValidIdentifier(`${resourceType}_type`);
 
-const makeReferencesSchema = (resourceType: string, paths: string[]) => {
+const getResourceTypeDefault = (resourceType: string, paths: string[]) => {
   const { config } = getContext()!;
 
+  return resourceType in config.resources.defaults
+    ? config.resources.defaults[resourceType]
+    : paths.length === 1
+      ? paths[0]
+      : null;
+};
+
+const makeReferencesSchema = (resourceType: string, paths: string[]) => {
   const refs = paths.map((path) => `$res:${path}`);
 
-  let defaultForType =
-    resourceType in config.resources.defaults
-      ? config.resources.defaults[resourceType]
-      : refs.length === 1
-        ? refs[0]
-        : undefined;
-
+  let defaultForType = getResourceTypeDefault(resourceType, refs);
   if (defaultForType != null && !defaultForType.startsWith("$res:")) {
     defaultForType = `$res:${defaultForType}`;
   }
