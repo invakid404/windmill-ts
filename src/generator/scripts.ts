@@ -54,6 +54,8 @@ const preamble = dedent`
   };
 
   export type ScriptPath = keyof typeof ${mapName};
+
+  export type ScriptArgs<Path extends ScriptPath> = z.input<(typeof ${mapName})[Path]>;
 `;
 
 export const generateScripts = async (observer: Observer) => {

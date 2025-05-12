@@ -49,6 +49,8 @@ const preamble = dedent`
   }
 
   export type FlowPath = keyof typeof ${mapName};
+
+  export type FlowArgs<Path extends FlowPath> = z.input<(typeof ${mapName})[Path]>;
 `;
 
 export const generateFlows = async (observer: Observer) => {
