@@ -84,7 +84,7 @@ export const schemaToZod = (
   const { resourceTypeToSchema = resourceTypeToUnion } = options ?? {};
   const { allResourceTypes } = getContext()!;
 
-  return jsonSchemaToZod(schema, {
+  let result = jsonSchemaToZod(schema, {
     parserOverride: (schema, _refs) => {
       // NOTE: Windmill sometimes has `default: null` on required fields,
       //       which is incorrect for obvious reasons, so as a rule of thumb,
@@ -165,6 +165,13 @@ export const schemaToZod = (
       }
     },
   });
+
+  // NOTE: this is a hack to support Zod v4 until there is official support
+  result = result.replace(/(['"])zod(['"])/g, "$1zod/v4$2");
+  result = result.replace(/\.record\(/g, ".record(z.string(),");
+  result = result.replace(/\.default\(/g, ".prefault(");
+
+  return result;
 };
 
 const resourceTypeToUnion = (resourceType: string) => {

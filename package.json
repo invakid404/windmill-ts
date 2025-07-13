@@ -28,7 +28,8 @@
     "to-valid-identifier": "^0.1.1",
     "windmill-client": "^1.422.0",
     "yaml": "^2.7.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.24.6"
   },
   "repository": {
     "type": "git",
@@ -38,5 +39,8 @@
     "url": "https://github.com/invakid404/windmill-ts/issues"
   },
   "homepage": "https://github.com/invakid404/windmill-ts#readme",
-  "files": ["dist", "README.md"]
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }
