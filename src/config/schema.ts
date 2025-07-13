@@ -17,19 +17,19 @@ const ResourceOptionsSchema = z
     defaults: z.record(z.string(), z.string().nullable()).default({}),
     transformer: TransformerSchema,
   })
-  .default({});
+  .prefault({});
 
 const ScriptOptionsSchema = z
   .object({
     enabled: z.boolean().default(true),
   })
-  .default({});
+  .prefault({});
 
 const FlowOptionsSchema = z
   .object({
     enabled: z.boolean().default(true),
   })
-  .default({});
+  .prefault({});
 
 export const ConfigSchema = z
   .object({
@@ -37,4 +37,4 @@ export const ConfigSchema = z
     scripts: ScriptOptionsSchema,
     flows: FlowOptionsSchema,
   })
-  .default({});
+  .prefault({});

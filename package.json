@@ -28,7 +28,7 @@
     "to-valid-identifier": "^0.1.1",
     "windmill-client": "^1.422.0",
     "yaml": "^2.7.0",
-    "zod": "^3.23.8",
+    "zod": "^4.0.5",
     "zod-to-json-schema": "^3.24.6"
   },
   "repository": {
