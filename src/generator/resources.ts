@@ -6,6 +6,8 @@ import { schemaToZod } from "./common.js";
 import dedent from "dedent";
 import type { Observer } from "./index.js";
 import * as path from "node:path";
+import capitalize from "@stdlib/string-capitalize";
+import camelCase from "@stdlib/string-camelcase";
 
 const resourceToTypeMap = "resourceToType";
 const resourceTypesTypeName = "ResourceTypes";
@@ -197,7 +199,9 @@ export const generateResources = async (observer: Observer) => {
   await write(`} as const));`);
 
   await write(`export type ${resourceTypesTypeName} = {`);
-  for (const resourceTypeName of [...resourcesByType.keys()].toSorted()) {
+
+  const resourceTypeNames = [...resourcesByType.keys()].toSorted();
+  for (const resourceTypeName of resourceTypeNames) {
     const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
     await write(
       `${JSON.stringify(resourceTypeName)}: z.infer<(typeof ${typeSchemaName})["schema"]>,`,
@@ -215,6 +219,16 @@ export const generateResources = async (observer: Observer) => {
     );
   }
   await write("} as const");
+
+  if (config.resources.individualResourceTypeExports) {
+    for (const resourceTypeName of resourceTypeNames) {
+      const typeName = resourceTypeToTSTypeName(resourceTypeName);
+
+      await write(
+        `export type ${typeName} = ${resourceTypesTypeName}[${JSON.stringify(resourceTypeName)}];`,
+      );
+    }
+  }
 
   observer.next("Done");
   observer.complete();
@@ -256,3 +270,6 @@ const makeReferencesSchema = (resourceType: string, paths: string[]) => {
     ...(defaultForType != null && { default: defaultForType }),
   } satisfies JSONSchema;
 };
+
+const resourceTypeToTSTypeName = (resourceTypeName: string) =>
+  toValidIdentifier(capitalize(camelCase(resourceTypeName)));

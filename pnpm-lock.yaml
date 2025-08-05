@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@stdlib/string-camelcase':
+        specifier: ^0.2.2
+        version: 0.2.2
+      '@stdlib/string-capitalize':
+        specifier: ^0.3.0
+        version: 0.3.0
       chalk:
         specifier: ^5.3.0
         version: 5.3.0
@@ -64,6 +70,106 @@ packages:
   '@sindresorhus/base62@0.1.0':
     resolution: {integrity: sha512-BNjiImatCV+CUdvzSbFWzZIZqOddg6qn0Ag6/8Ty5G09oOtvxidZ5tkPQW2XHpzGVkB3eHfdYGwrWNy2nUFOwQ==}
     engines: {node: '>=18'}
+
+  '@stdlib/assert-has-own-property@0.2.2':
+    resolution: {integrity: sha512-m5rV4Z2/iNkwx2vRsNheM6sQZMzc8rQQOo90LieICXovXZy8wA5jNld4kRKjMNcRt/TjrNP7i2Rhh8hruRDlHg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-symbol-support@0.2.2':
+    resolution: {integrity: sha512-vCsGGmDZz5dikGgdF26rIL0y0nHvH7qaVf89HLLTybceuZijAqFSJEqcB3Gpl5uaeueLNAWExHi2EkoUVqKHGg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-tostringtag-support@0.2.2':
+    resolution: {integrity: sha512-bSHGqku11VH0swPEzO4Y2Dr+lTYEtjSWjamwqCTC8udOiOIOHKoxuU4uaMGKJjVfXG1L+XefLHqzuO5azxdRaA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-string@0.2.2':
+    resolution: {integrity: sha512-SOkFg4Hq443hkadM4tzcwTHWvTyKP9ULOZ8MSnnqmU0nBX1zLVFLFGY8jnF6Cary0dL0V7QQBCfuxqKFM6u2PQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/error-tools-fmtprodmsg@0.2.2':
+    resolution: {integrity: sha512-2IliQfTes4WV5odPidZFGD5eYDswZrPXob7oOu95Q69ERqImo8WzSwnG2EDbHPyOyYCewuMfM5Ha6Ggf+u944Q==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-camelcase@0.2.2':
+    resolution: {integrity: sha512-+nH5C7zyF+gbWIT6wauRvW5zMfbw/yEH5VOm2fktitMSTuB2VRpW0AQNzpew4AQZrDoGAEFuQeeaXchumyV4sw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-capitalize@0.2.1':
+    resolution: {integrity: sha512-b67VZRc2Lqk/SCdlPnj9xe2pnSoomLHgtWWVmf2vhJxeX8WBOBALDUb0y6MeWTJMk103YH7cGmrcw1VQi9zQ1Q==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-capitalize@0.3.0':
+    resolution: {integrity: sha512-39g3uc0Y3QZbsOcysUJi/XOFQWULjR8X2TZuFby05lVyMHGT5L7x3JWYIvXtAgennzSMfI0ydgIeg2LMkKigUA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-format-interpolate@0.2.2':
+    resolution: {integrity: sha512-i9nU9rAB2+o/RR66TS9iQ8x+YzeUDL1SGiAo6GY3hP6Umz5Dx9Qp/v8T69gWVsb4a1YSclz5+YeCWaFgwvPjKA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-format-tokenize@0.2.2':
+    resolution: {integrity: sha512-kXq2015i+LJjqth5dN+hYnvJXBSzRm8w0ABWB5tYAsIuQTpQK+mSo2muM8JBEFEnqUHAwpUsu2qNTK/9o8lsJg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-lowercase@0.4.0':
+    resolution: {integrity: sha512-IH35Z5e4T+S3b3SfYY39mUhrD2qvJVp4VS7Rn3+jgj4+C3syocuAPsJ8C4OQXWGfblX/N9ymizbpFBCiVvMW8w==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-replace@0.2.2':
+    resolution: {integrity: sha512-Y4jZwRV4Uertw7AlA/lwaYl1HjTefSriN5+ztRcQQyDYmoVN3gzoVKLJ123HPiggZ89vROfC+sk/6AKvly+0CA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-trim@0.2.2':
+    resolution: {integrity: sha512-1BVoM1XYxPbZ7xQcf4+TNP4dya5KphlkRnj0e0FBrmlYacJITvPgmsywOREivHqF8osH1oQQBZ47J/J/hQ79Eg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-camelcase@0.2.2':
+    resolution: {integrity: sha512-GFY9KTEphyhEsg+q0xQp5Scm5WgrVMFE4GmXkHbLjb573T/PAW3tMIsrTVi04qbcYVitEircF8/eHZYdB1TAqw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-capitalize@0.3.0':
+    resolution: {integrity: sha512-7OstitFPYRDHod9rMDb9Uu9qcdJPng09YA6/Z0SWDcmcMYfVxSTfB553kDwTOUH6CUsv0keR9Z7GxpbuU6x/tw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-format@0.2.2':
+    resolution: {integrity: sha512-GUa50uxgMAtoItsxTbMmwkyhIwrCxCrsjzk3nAbLnt/1Kt1EWOWMwsALqZdD6K4V/xSJ4ns6PZur3W6w+vKk9g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/symbol-ctor@0.2.2':
+    resolution: {integrity: sha512-XsmiTfHnTb9jSPf2SoK3O0wrNOXMxqzukvDvtzVur1XBKfim9+seaAS4akmV1H3+AroAXQWVtde885e1B6jz1w==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-define-nonenumerable-read-only-property@0.2.2':
+    resolution: {integrity: sha512-V3mpAesJemLYDKG376CsmoczWPE/4LKsp8xBvUxCt5CLNAx3J/1W39iZQyA5q6nY1RStGinGn1/dYZwa8ig0Uw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-define-property@0.2.4':
+    resolution: {integrity: sha512-XlMdz7xwuw/sqXc9LbsV8XunCzZXjbZPC+OAdf4t4PBw4ZRwGzlTI6WED+f4PYR5Tp9F1cHgLPyMYCIBfA2zRg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-native-class@0.2.2':
+    resolution: {integrity: sha512-cSn/FozbEpfR/FlJAoceQtZ8yUJFhZ8RFkbEsxW/7+H4o09yln3lBS0HSfUJISYNtpTNN/2/Fup88vmvwspvwA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
   '@types/node@22.9.0':
     resolution: {integrity: sha512-vuyHg81vvWA1Z1ELfvLko2c8f34gyA0zaic0+Rllc5lbCnbSyuvb2Oxpm6TAUAC/2xZN3QGqxBNggD1nNR2AfQ==}
@@ -353,6 +459,81 @@ snapshots:
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
   '@sindresorhus/base62@0.1.0': {}
+
+  '@stdlib/assert-has-own-property@0.2.2': {}
+
+  '@stdlib/assert-has-symbol-support@0.2.2': {}
+
+  '@stdlib/assert-has-tostringtag-support@0.2.2':
+    dependencies:
+      '@stdlib/assert-has-symbol-support': 0.2.2
+
+  '@stdlib/assert-is-string@0.2.2':
+    dependencies:
+      '@stdlib/assert-has-tostringtag-support': 0.2.2
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.2
+      '@stdlib/utils-native-class': 0.2.2
+
+  '@stdlib/error-tools-fmtprodmsg@0.2.2': {}
+
+  '@stdlib/string-base-camelcase@0.2.2':
+    dependencies:
+      '@stdlib/string-base-capitalize': 0.2.1
+      '@stdlib/string-base-lowercase': 0.4.0
+      '@stdlib/string-base-replace': 0.2.2
+      '@stdlib/string-base-trim': 0.2.2
+
+  '@stdlib/string-base-capitalize@0.2.1': {}
+
+  '@stdlib/string-base-capitalize@0.3.0': {}
+
+  '@stdlib/string-base-format-interpolate@0.2.2': {}
+
+  '@stdlib/string-base-format-tokenize@0.2.2': {}
+
+  '@stdlib/string-base-lowercase@0.4.0': {}
+
+  '@stdlib/string-base-replace@0.2.2': {}
+
+  '@stdlib/string-base-trim@0.2.2':
+    dependencies:
+      '@stdlib/string-base-replace': 0.2.2
+
+  '@stdlib/string-camelcase@0.2.2':
+    dependencies:
+      '@stdlib/assert-is-string': 0.2.2
+      '@stdlib/error-tools-fmtprodmsg': 0.2.2
+      '@stdlib/string-base-camelcase': 0.2.2
+      '@stdlib/string-format': 0.2.2
+
+  '@stdlib/string-capitalize@0.3.0':
+    dependencies:
+      '@stdlib/assert-is-string': 0.2.2
+      '@stdlib/error-tools-fmtprodmsg': 0.2.2
+      '@stdlib/string-base-capitalize': 0.3.0
+      '@stdlib/string-format': 0.2.2
+
+  '@stdlib/string-format@0.2.2':
+    dependencies:
+      '@stdlib/string-base-format-interpolate': 0.2.2
+      '@stdlib/string-base-format-tokenize': 0.2.2
+
+  '@stdlib/symbol-ctor@0.2.2': {}
+
+  '@stdlib/utils-define-nonenumerable-read-only-property@0.2.2':
+    dependencies:
+      '@stdlib/utils-define-property': 0.2.4
+
+  '@stdlib/utils-define-property@0.2.4':
+    dependencies:
+      '@stdlib/error-tools-fmtprodmsg': 0.2.2
+      '@stdlib/string-format': 0.2.2
+
+  '@stdlib/utils-native-class@0.2.2':
+    dependencies:
+      '@stdlib/assert-has-own-property': 0.2.2
+      '@stdlib/assert-has-tostringtag-support': 0.2.2
+      '@stdlib/symbol-ctor': 0.2.2
 
   '@types/node@22.9.0':
     dependencies:

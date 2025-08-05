@@ -16,6 +16,7 @@ const ResourceOptionsSchema = z
     // Map from resource type to default resource path
     defaults: z.record(z.string(), z.string().nullable()).default({}),
     transformer: TransformerSchema,
+    individualResourceTypeExports: z.boolean().default(false),
   })
   .prefault({});
 
