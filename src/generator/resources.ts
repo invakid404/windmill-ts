@@ -88,6 +88,32 @@ const preamble = dedent`
 
     return getResource(path);
   }
+
+  export async function* listResources<Type extends keyof ${resourceTypesTypeName}>(
+    resourceType: Type,
+    options?: { perPage?: number },
+  ) {
+    const { perPage = 30 } = options ?? {};
+    const perPageSanitized = Math.max(Math.min(perPage, 100), 1);
+
+    for (let page = 1; ; ++page) {
+      const pageData = await wmill.ResourceService.listResource({
+        workspace: process.env["WM_WORKSPACE"]!,
+        page,
+        perPage: perPageSanitized,
+        resourceType,
+      });
+
+      if (pageData.length === 0) {
+        break;
+      }
+
+      for (const { path } of pageData) {
+        const resource = await getResource(path, resourceType);
+        yield resource;
+      }
+    }
+  }
 `;
 
 export const generateResources = async (observer: Observer) => {
