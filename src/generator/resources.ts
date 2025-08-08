@@ -91,12 +91,16 @@ const preamble = dedent`
 
   export async function* listResources<Type extends keyof ${resourceTypesTypeName}>(
     resourceType: Type,
+    options?: { perPage?: number },
   ) {
+    const { perPage = 30 } = options ?? {};
+    const perPageSanitized = Math.max(Math.min(perPage, 100), 1);
+
     for (let page = 1; ; ++page) {
       const pageData = await wmill.ResourceService.listResource({
         workspace: process.env["WM_WORKSPACE"]!,
         page,
-        perPage: 100,
+        perPage: perPageSanitized,
         resourceType,
       });
 
