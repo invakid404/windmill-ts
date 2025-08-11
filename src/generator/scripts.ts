@@ -13,7 +13,7 @@ const preamble = dedent`
   ) => {
     const schema = ${mapName}[scriptPath];
 
-    return wmill.runScript(scriptPath, null, schema.parse(args));
+    return wmill.runScriptByPath(scriptPath, schema.parse(args));
   };
 
   type RunScriptAsyncOptions = {
@@ -38,9 +38,8 @@ const preamble = dedent`
     );
 
     return runner(() =>
-      wmill.runScriptAsync(
+      wmill.runScriptByPathAsync(
         scriptPath,
-        null,
         schema.parse(args),
         scheduledInSeconds,
       ),
