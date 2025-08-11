@@ -39,8 +39,8 @@ importers:
         specifier: ^0.1.1
         version: 0.1.1
       windmill-client:
-        specifier: ^1.422.0
-        version: 1.422.0
+        specifier: ^1.522.0
+        version: 1.522.0
       yaml:
         specifier: ^2.7.0
         version: 2.7.0
@@ -419,8 +419,8 @@ packages:
     engines: {node: '>= 8'}
     hasBin: true
 
-  windmill-client@1.422.0:
-    resolution: {integrity: sha512-W8GCjIilNXY50OOvZwdT0XaKW2De6uSuyGaQlWMUF3UlIVj97soPhyW4QjgyMWbDCL67wkE2qlNPSupNG+4sCQ==}
+  windmill-client@1.522.0:
+    resolution: {integrity: sha512-ZDlNWKHUCygYszqDdaTvBelkYnrFAKKcoEqJvm2l5LqWfu7Qkhe5Xqf+IuMth9Vx6ADk81hkovh3ymSdPI8E1A==}
 
   wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
@@ -756,7 +756,7 @@ snapshots:
     dependencies:
       isexe: 2.0.0
 
-  windmill-client@1.422.0: {}
+  windmill-client@1.522.0: {}
 
   wrap-ansi@7.0.0:
     dependencies:
