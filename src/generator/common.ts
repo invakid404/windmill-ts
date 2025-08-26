@@ -10,6 +10,7 @@ import {
 import { once } from "../utils/once.js";
 import dedent from "dedent";
 import type { Observer } from "./index.js";
+import { fixupZodSchema } from "../utils/fixupZodSchema.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
   const { allResourceTypes, outputDir } = getContext()!;
@@ -166,12 +167,7 @@ export const schemaToZod = (
     },
   });
 
-  // NOTE: this is a hack to support Zod v4 until there is official support
-  result = result.replace(/(['"])zod(['"])/g, "$1zod/v4$2");
-  result = result.replace(/\.record\(/g, ".record(z.string(),");
-  result = result.replace(/\.default\(/g, ".prefault(");
-
-  return result;
+  return fixupZodSchema(result);
 };
 
 const resourceTypeToUnion = (resourceType: string) => {
