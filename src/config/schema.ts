@@ -34,10 +34,21 @@ const FlowOptionsSchema = z
   })
   .prefault({});
 
+const FetchRetryOptionsSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    retries: z.number().int().min(0).default(3),
+    minTimeout: z.number().int().min(0).default(1000),
+    maxTimeout: z.number().int().min(0).default(10000),
+    factor: z.number().min(1).default(2),
+  })
+  .prefault({});
+
 export const ConfigSchema = z
   .object({
     resources: ResourceOptionsSchema,
     scripts: ScriptOptionsSchema,
     flows: FlowOptionsSchema,
+    fetchRetry: FetchRetryOptionsSchema,
   })
   .prefault({});

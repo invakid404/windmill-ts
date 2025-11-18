@@ -9,6 +9,7 @@ import * as fs from "node:fs";
 import chalk from "chalk";
 import { getConfig } from "./config/index.js";
 import * as path from "node:path";
+import { patchFetchWithRetry } from "./utils/fetchRetry.js";
 
 const program = new Command();
 
@@ -18,6 +19,9 @@ program
   .version(packageJSON.version)
   .hook("preAction", async () => {
     const config = await getConfig();
+
+    // Apply fetch retry monkeypatch early, before any windmill-client calls
+    patchFetchWithRetry(config.fetchRetry);
 
     if (!config.scripts.enabled) {
       console.warn(chalk.yellow("⚠️ Script generation is disabled in config"));
