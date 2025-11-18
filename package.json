@@ -1,6 +1,6 @@
 {
   "name": "windmill-ts",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Type-safe client for Windmill",
   "main": "dist/src/index.js",
   "bin": "dist/src/index.js",
@@ -43,8 +43,5 @@
     "url": "https://github.com/invakid404/windmill-ts/issues"
   },
   "homepage": "https://github.com/invakid404/windmill-ts#readme",
-  "files": [
-    "dist",
-    "README.md"
-  ]
+  "files": ["dist", "README.md"]
 }
