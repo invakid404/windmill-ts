@@ -34,12 +34,14 @@ export type GenerateSchemasOptions = {
   generator: AsyncGenerator<ResourceWithSchema>;
   mapName: string;
   observer: Observer;
+  looseArgs?: boolean;
 };
 
 export const generateSchemas = async ({
   generator,
   mapName,
   observer,
+  looseArgs = false,
 }: GenerateSchemasOptions) => {
   const { write } = getContext()!;
 
@@ -53,7 +55,7 @@ export const generateSchemas = async ({
       }
 
       const schemaName = toValidIdentifier(`${mapName}_${path}`);
-      const zodSchema = schemaToZod(schema);
+      const zodSchema = schemaToZod(schema, { looseTopLevelObject: looseArgs });
 
       await write(`const ${schemaName} = lazyObject(() => ${zodSchema});`);
       pathToSchemaMap.set(path, schemaName);
@@ -76,13 +78,17 @@ export const generateSchemas = async ({
 
 export type SchemaToZodOptions = {
   resourceTypeToSchema?: (resourceType: string) => string;
+  looseTopLevelObject?: boolean;
 };
 
 export const schemaToZod = (
   schema: JSONSchema,
   options?: SchemaToZodOptions,
 ) => {
-  const { resourceTypeToSchema = resourceTypeToUnion } = options ?? {};
+  const {
+    resourceTypeToSchema = resourceTypeToUnion,
+    looseTopLevelObject = false,
+  } = options ?? {};
   const { allResourceTypes } = getContext()!;
 
   let result = jsonSchemaToZod(schema, {
@@ -167,7 +173,7 @@ export const schemaToZod = (
     },
   });
 
-  return fixupZodSchema(result);
+  return fixupZodSchema(result, { looseTopLevelObject });
 };
 
 const resourceTypeToUnion = (resourceType: string) => {

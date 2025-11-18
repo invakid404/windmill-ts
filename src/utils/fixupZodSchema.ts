@@ -1,8 +1,26 @@
-import { Project, ScriptTarget, SyntaxKind, Node } from "ts-morph";
+import {
+  Project,
+  ScriptTarget,
+  SyntaxKind,
+  Node,
+  type SourceFile,
+} from "ts-morph";
+
+type FixupOptions = {
+  looseTopLevelObject?: boolean;
+};
 
 // NOTE: this is a hack to support Zod v4 until there is official support
-export const fixupZodSchema = (generatedSchema: string) => {
+export const fixupZodSchema = (
+  generatedSchema: string,
+  options?: FixupOptions,
+) => {
+  const { looseTopLevelObject = false } = options ?? {};
   const sourceFile = tsCodeToSourceFile(generatedSchema);
+
+  if (looseTopLevelObject) {
+    makeTopLevelObjectLoose(sourceFile);
+  }
 
   sourceFile.forEachDescendant((node) => {
     if (node.getKind() === SyntaxKind.CallExpression) {
@@ -102,4 +120,48 @@ const tsCodeToSourceFile = (tsCode: string) => {
   });
 
   return project.createSourceFile("source.ts", tsCode);
+};
+
+const makeTopLevelObjectLoose = (sourceFile: SourceFile) => {
+  const expressionStatement = sourceFile
+    .getStatements()
+    .find((statement) => statement.isKind(SyntaxKind.ExpressionStatement))
+    ?.asKind(SyntaxKind.ExpressionStatement);
+
+  if (!expressionStatement) {
+    return;
+  }
+
+  replaceZObjectInChain(expressionStatement.getExpression());
+};
+
+const replaceZObjectInChain = (node: Node | undefined): boolean => {
+  if (!node) {
+    return false;
+  }
+
+  if (Node.isParenthesizedExpression(node)) {
+    return replaceZObjectInChain(node.getExpression());
+  }
+
+  if (Node.isCallExpression(node)) {
+    return replaceZObjectInChain(node.getExpression());
+  }
+
+  if (Node.isPropertyAccessExpression(node)) {
+    const expression = node.getExpression();
+
+    if (Node.isIdentifier(expression) && expression.getText() === "z") {
+      if (node.getName() === "object") {
+        node.getNameNode().replaceWithText("looseObject");
+        return true;
+      }
+
+      return false;
+    }
+
+    return replaceZObjectInChain(expression);
+  }
+
+  return false;
 };

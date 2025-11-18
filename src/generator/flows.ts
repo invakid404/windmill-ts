@@ -54,7 +54,7 @@ const preamble = dedent`
 `;
 
 export const generateFlows = async (observer: Observer) => {
-  const { write } = getContext()!;
+  const { write, config } = getContext()!;
 
   await write(preamble);
 
@@ -62,5 +62,6 @@ export const generateFlows = async (observer: Observer) => {
     generator: listFlows(),
     mapName,
     observer,
+    looseArgs: config.flows.looseArgs,
   });
 };

@@ -93,11 +93,15 @@ resources:
 scripts:
   # Whether to generate script-related code (default: true)
   enabled: true
+  # Allow extra arguments by generating z.looseObject-based schemas (default: false)
+  looseArgs: false
 
 # Flow generation configuration
 flows:
   # Whether to generate flow-related code (default: true)
   enabled: true
+  # Allow extra arguments by generating z.looseObject-based schemas (default: false)
+  looseArgs: false
 ```
 
 The configuration file is optional. If not provided, windmill-ts will use

@@ -42,5 +42,8 @@
     "url": "https://github.com/invakid404/windmill-ts/issues"
   },
   "homepage": "https://github.com/invakid404/windmill-ts#readme",
-  "files": ["dist", "README.md"]
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

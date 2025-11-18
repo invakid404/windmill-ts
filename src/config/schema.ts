@@ -23,12 +23,14 @@ const ResourceOptionsSchema = z
 const ScriptOptionsSchema = z
   .object({
     enabled: z.boolean().default(true),
+    looseArgs: z.boolean().default(false),
   })
   .prefault({});
 
 const FlowOptionsSchema = z
   .object({
     enabled: z.boolean().default(true),
+    looseArgs: z.boolean().default(false),
   })
   .prefault({});
 

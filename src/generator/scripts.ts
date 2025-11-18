@@ -58,7 +58,7 @@ const preamble = dedent`
 `;
 
 export const generateScripts = async (observer: Observer) => {
-  const { write } = getContext()!;
+  const { write, config } = getContext()!;
 
   await write(preamble);
 
@@ -66,5 +66,6 @@ export const generateScripts = async (observer: Observer) => {
     generator: listScripts(),
     mapName,
     observer,
+    looseArgs: config.scripts.looseArgs,
   });
 };
