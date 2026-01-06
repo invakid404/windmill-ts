@@ -42,25 +42,33 @@ const preamble = dedent`
     ApplyTransformer<typeof ${resourceTransformerName}, Resource>
   >;
 
+  type GetResourceOptions = { skipValidation?: boolean };
+
   type GetResource = {
     <Path extends keyof typeof ${resourceToTypeMap}>(
       path: Path,
+      options?: GetResourceOptions,
     ): GetResourceReturnType<z.infer<(typeof ${resourceToTypeMap})[Path]["schema"]>>;
     <Type extends keyof ${resourceTypesTypeName}>(
       path: string,
       resourceType: Type,
+      options?: GetResourceOptions,
     ): GetResourceReturnType<${resourceTypesTypeName}[Type]>;
-    (path: string, resourceType?: string): Promise<object>;
+    (path: string, resourceType?: string, options?: GetResourceOptions): Promise<object>;
   };
 
   export const getResource: GetResource = async (
     path: string,
-    resourceType?: string,
+    resourceTypeOrOptions?: string | GetResourceOptions,
+    maybeOptions?: GetResourceOptions,
   ) => {
+    const resourceType = typeof resourceTypeOrOptions === "string" ? resourceTypeOrOptions : undefined;
+    const options = typeof resourceTypeOrOptions === "object" ? resourceTypeOrOptions : maybeOptions;
+
     if (${resourceToTypeMap}[path] == null) {
       throw new Error(\`Unknown resource: \${JSON.stringify(path)}\`);
     }
-  
+
     const { name, schema } = ${resourceToTypeMap}[path];
     if (resourceType != null && name !== resourceType) {
       throw new Error(
@@ -69,7 +77,7 @@ const preamble = dedent`
     }
 
     const data = await wmill.getResource(path);
-    const parsedData = schema.parse(data);
+    const parsedData = options?.skipValidation ? data : schema.parse(data);
 
     const transformer = ${resourceTransformerName}.prototype.do;
 
@@ -89,11 +97,11 @@ const preamble = dedent`
     return getResource(path);
   }
 
-  export async function* listResources<Type extends keyof ${resourceTypesTypeName}>(
+  export async function* listResourcesWithPaths<Type extends keyof ${resourceTypesTypeName}>(
     resourceType: Type,
-    options?: { perPage?: number },
+    options?: { perPage?: number; skipValidation?: boolean },
   ) {
-    const { perPage = 30 } = options ?? {};
+    const { perPage = 30, skipValidation = false } = options ?? {};
     const perPageSanitized = Math.max(Math.min(perPage, 100), 1);
 
     for (let page = 1; ; ++page) {
@@ -109,9 +117,18 @@ const preamble = dedent`
       }
 
       for (const { path } of pageData) {
-        const resource = await getResource(path, resourceType);
-        yield resource;
+        const resource = await getResource(path, resourceType, { skipValidation });
+        yield { path, resource };
       }
+    }
+  }
+
+  export async function* listResources<Type extends keyof ${resourceTypesTypeName}>(
+    resourceType: Type,
+    options?: { perPage?: number; skipValidation?: boolean },
+  ) {
+    for await (const { resource } of listResourcesWithPaths(resourceType, options)) {
+      yield resource;
     }
   }
 `;
