@@ -131,6 +131,27 @@ const preamble = dedent`
       yield resource;
     }
   }
+
+  export const getResourcePathsForType = <Type extends keyof typeof pathsPerResourceType>(
+    resourceType: Type,
+  ): (typeof pathsPerResourceType)[Type] => {
+    const paths = pathsPerResourceType[resourceType];
+    if (paths == null) {
+      throw new Error(\`Unknown resource type: \${JSON.stringify(resourceType)}\`);
+    }
+    return paths;
+  }
+
+  export const isResourcePathOfType = <Type extends keyof typeof pathsPerResourceType>(
+    path: string,
+    resourceType: Type,
+  ): path is (typeof pathsPerResourceType)[Type][number] => {
+    const paths = pathsPerResourceType[resourceType];
+    if (paths == null) {
+      return false;
+    }
+    return (paths as readonly string[]).includes(path);
+  }
 `;
 
 export const generateResources = async (observer: Observer) => {
@@ -238,6 +259,14 @@ export const generateResources = async (observer: Observer) => {
     for (const path of paths) {
       await write(`${JSON.stringify(path)}: ${typeSchemaName},`);
     }
+  }
+  await write(`} as const));`);
+
+  await write(`const pathsPerResourceType = lazyObject(() => ({`);
+  for (const [resourceTypeName, paths] of resourcesByType) {
+    await write(
+      `${JSON.stringify(resourceTypeName)}: ${JSON.stringify(paths)} as const,`,
+    );
   }
   await write(`} as const));`);
 
