@@ -17,6 +17,9 @@ const ResourceOptionsSchema = z
     defaults: z.record(z.string(), z.string().nullable()).default({}),
     transformer: TransformerSchema,
     individualResourceTypeExports: z.boolean().default(false),
+    // When true, resource type schemas will use z.looseObject() instead of z.object()
+    // to allow passthrough of unknown fields
+    looseSchemas: z.boolean().default(false),
   })
   .prefault({});
 

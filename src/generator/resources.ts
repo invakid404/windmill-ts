@@ -225,6 +225,7 @@ export const generateResources = async (observer: Observer) => {
     const typeSchemaName = resourceTypeSchemaName(resourceType.name);
     const resourceTypeSchema = schemaToZod(resourceType.schema as never, {
       resourceTypeToSchema: resourceTypeSchemaName,
+      looseTopLevelObject: config.resources.looseSchemas,
     });
 
     await write(
