@@ -32,8 +32,13 @@ const preamble = dedent`
   }
 
   let ${envStorageName}: AsyncLocalStorage<Record<string, string | undefined>> | null = null;
+  let initPromise: Promise<void> | null = null;
 
-  if (typeof process !== 'undefined') {
+  const initEnvStorage = () => initPromise ??= (async () => {
+    if (typeof process === 'undefined') {
+      return;
+    }
+
     const { AsyncLocalStorage } = await import('node:async_hooks');
     ${envStorageName} = new AsyncLocalStorage();
 
@@ -44,7 +49,7 @@ const preamble = dedent`
         if (store != null && prop in store && typeof prop === 'string') {
           return store[prop];
         }
-    
+
         return Reflect.get(target, prop, receiver);
       },
       set: (target, prop, value, receiver) => {
@@ -55,10 +60,12 @@ const preamble = dedent`
 
         return Reflect.set(target, prop, value, receiver);
       }
-    })
-  }
+    });
+  })();
 
   export const runDetached = async <T extends unknown>(cb: () => Promise<T>) => {
+    await initEnvStorage();
+
     if (${envStorageName} == null) {
       console.warn("Calling \`runDetached\` in a non-Node environment is unsupported.");
 
