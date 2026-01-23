@@ -34,50 +34,34 @@ const preamble = dedent`
   let ${envStorageName}: AsyncLocalStorage<Record<string, string | undefined>> | null = null;
   let initPromise: Promise<void> | null = null;
 
-  const initEnvStorage = async () => {
-    // Already initialized
-    if (${envStorageName} != null) {
-      return;
-    }
-
-    // Initialization in progress, wait for it
-    if (initPromise != null) {
-      return initPromise;
-    }
-
-    // Not in Node environment
+  const initEnvStorage = () => initPromise ??= (async () => {
     if (typeof process === 'undefined') {
       return;
     }
 
-    // Start initialization and store the promise for concurrent calls
-    initPromise = (async () => {
-      const { AsyncLocalStorage } = await import('node:async_hooks');
-      ${envStorageName} = new AsyncLocalStorage();
+    const { AsyncLocalStorage } = await import('node:async_hooks');
+    ${envStorageName} = new AsyncLocalStorage();
 
-      const originalProcessEnv = process.env;
-      process.env = new Proxy(originalProcessEnv, {
-        get: (target, prop, receiver) => {
-          const store = ${envStorageName}!.getStore();
-          if (store != null && prop in store && typeof prop === 'string') {
-            return store[prop];
-          }
-
-          return Reflect.get(target, prop, receiver);
-        },
-        set: (target, prop, value, receiver) => {
-          if (typeof prop === 'string') {
-            target[prop] = value;
-            return true;
-          }
-
-          return Reflect.set(target, prop, value, receiver);
+    const originalProcessEnv = process.env;
+    process.env = new Proxy(originalProcessEnv, {
+      get: (target, prop, receiver) => {
+        const store = ${envStorageName}!.getStore();
+        if (store != null && prop in store && typeof prop === 'string') {
+          return store[prop];
         }
-      });
-    })();
 
-    return initPromise;
-  };
+        return Reflect.get(target, prop, receiver);
+      },
+      set: (target, prop, value, receiver) => {
+        if (typeof prop === 'string') {
+          target[prop] = value;
+          return true;
+        }
+
+        return Reflect.set(target, prop, value, receiver);
+      }
+    });
+  })();
 
   export const runDetached = async <T extends unknown>(cb: () => Promise<T>) => {
     await initEnvStorage();
