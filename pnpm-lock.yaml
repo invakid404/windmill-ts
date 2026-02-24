@@ -12,8 +12,8 @@ importers:
         specifier: 0.2.3
         version: 0.2.3
       '@stdlib/string-capitalize':
-        specifier: 0.3.0
-        version: 0.3.0
+        specifier: 0.3.1
+        version: 0.3.1
       chalk:
         specifier: 5.3.0
         version: 5.3.0
@@ -94,18 +94,8 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
-  '@stdlib/assert-has-symbol-support@0.2.2':
-    resolution: {integrity: sha512-vCsGGmDZz5dikGgdF26rIL0y0nHvH7qaVf89HLLTybceuZijAqFSJEqcB3Gpl5uaeueLNAWExHi2EkoUVqKHGg==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
   '@stdlib/assert-has-symbol-support@0.2.3':
     resolution: {integrity: sha512-yNsJnCb7HWye5xhZ/eRIpp28HwOVFF5gUCKeT1p4haoDJOn+3YEPYaXMn4mYK6kRN96tUhovlJQv9H/9jwnLpA==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
-  '@stdlib/assert-has-tostringtag-support@0.2.2':
-    resolution: {integrity: sha512-bSHGqku11VH0swPEzO4Y2Dr+lTYEtjSWjamwqCTC8udOiOIOHKoxuU4uaMGKJjVfXG1L+XefLHqzuO5azxdRaA==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -114,18 +104,8 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
-  '@stdlib/assert-is-string@0.2.2':
-    resolution: {integrity: sha512-SOkFg4Hq443hkadM4tzcwTHWvTyKP9ULOZ8MSnnqmU0nBX1zLVFLFGY8jnF6Cary0dL0V7QQBCfuxqKFM6u2PQ==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
   '@stdlib/assert-is-string@0.2.3':
     resolution: {integrity: sha512-KC2sHwnIo775uEPRG7miERHb3DMABf37jS6o2bmcMHyME+gl+HC/bnqgwYTfgOsM0YOvYMSgA1HJo6iPDXdFrw==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
-  '@stdlib/error-tools-fmtprodmsg@0.2.2':
-    resolution: {integrity: sha512-2IliQfTes4WV5odPidZFGD5eYDswZrPXob7oOu95Q69ERqImo8WzSwnG2EDbHPyOyYCewuMfM5Ha6Ggf+u944Q==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -144,18 +124,13 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
-  '@stdlib/string-base-format-interpolate@0.2.2':
-    resolution: {integrity: sha512-i9nU9rAB2+o/RR66TS9iQ8x+YzeUDL1SGiAo6GY3hP6Umz5Dx9Qp/v8T69gWVsb4a1YSclz5+YeCWaFgwvPjKA==}
+  '@stdlib/string-base-capitalize@0.3.1':
+    resolution: {integrity: sha512-Y3cetqq4PBRwYFeBNuUsGXWwV/eE/JN9m5hP6K8DU9FHaxsBN+w3GFOfk7YAHP4kwlyT5YaXibmkTlzQnF36IA==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
   '@stdlib/string-base-format-interpolate@0.2.4':
     resolution: {integrity: sha512-POG725+DPEmzEJbMFTFPdKM4vA5i+t7juNYs+H2cQz5JXiPV1+5+P3epnO+/DqHWzLhiMlsKDCZq03C3WcBkSA==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
-  '@stdlib/string-base-format-tokenize@0.2.2':
-    resolution: {integrity: sha512-kXq2015i+LJjqth5dN+hYnvJXBSzRm8w0ABWB5tYAsIuQTpQK+mSo2muM8JBEFEnqUHAwpUsu2qNTK/9o8lsJg==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -184,13 +159,8 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
-  '@stdlib/string-capitalize@0.3.0':
-    resolution: {integrity: sha512-7OstitFPYRDHod9rMDb9Uu9qcdJPng09YA6/Z0SWDcmcMYfVxSTfB553kDwTOUH6CUsv0keR9Z7GxpbuU6x/tw==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
-  '@stdlib/string-format@0.2.2':
-    resolution: {integrity: sha512-GUa50uxgMAtoItsxTbMmwkyhIwrCxCrsjzk3nAbLnt/1Kt1EWOWMwsALqZdD6K4V/xSJ4ns6PZur3W6w+vKk9g==}
+  '@stdlib/string-capitalize@0.3.1':
+    resolution: {integrity: sha512-Brsw3IyhRu8z+nwCq2cL5dGSsTMZRUN3InJdeuFLOQ6KnTKrLICEt+XNaaB7k0co1TApA/D5G7jpcVckWWOAMQ==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -209,18 +179,8 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
-  '@stdlib/utils-define-nonenumerable-read-only-property@0.2.2':
-    resolution: {integrity: sha512-V3mpAesJemLYDKG376CsmoczWPE/4LKsp8xBvUxCt5CLNAx3J/1W39iZQyA5q6nY1RStGinGn1/dYZwa8ig0Uw==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
   '@stdlib/utils-define-nonenumerable-read-only-property@0.2.3':
     resolution: {integrity: sha512-W0rqnRsXgW3GjcwEcOMi0mI/CXn3TVqmFvcxItLUZPJNYmwrU6+t+9kGldhMw845DyOtv8uYASrnNoVE/VfiDw==}
-    engines: {node: '>=0.10.0', npm: '>2.7.0'}
-    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
-
-  '@stdlib/utils-define-property@0.2.4':
-    resolution: {integrity: sha512-XlMdz7xwuw/sqXc9LbsV8XunCzZXjbZPC+OAdf4t4PBw4ZRwGzlTI6WED+f4PYR5Tp9F1cHgLPyMYCIBfA2zRg==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -615,31 +575,17 @@ snapshots:
 
   '@stdlib/assert-has-own-property@0.2.2': {}
 
-  '@stdlib/assert-has-symbol-support@0.2.2': {}
-
   '@stdlib/assert-has-symbol-support@0.2.3': {}
-
-  '@stdlib/assert-has-tostringtag-support@0.2.2':
-    dependencies:
-      '@stdlib/assert-has-symbol-support': 0.2.2
 
   '@stdlib/assert-has-tostringtag-support@0.2.3':
     dependencies:
       '@stdlib/assert-has-symbol-support': 0.2.3
-
-  '@stdlib/assert-is-string@0.2.2':
-    dependencies:
-      '@stdlib/assert-has-tostringtag-support': 0.2.2
-      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.2
-      '@stdlib/utils-native-class': 0.2.2
 
   '@stdlib/assert-is-string@0.2.3':
     dependencies:
       '@stdlib/assert-has-tostringtag-support': 0.2.3
       '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
       '@stdlib/utils-native-class': 0.2.2
-
-  '@stdlib/error-tools-fmtprodmsg@0.2.2': {}
 
   '@stdlib/error-tools-fmtprodmsg@0.2.3': {}
 
@@ -652,11 +598,9 @@ snapshots:
 
   '@stdlib/string-base-capitalize@0.3.0': {}
 
-  '@stdlib/string-base-format-interpolate@0.2.2': {}
+  '@stdlib/string-base-capitalize@0.3.1': {}
 
   '@stdlib/string-base-format-interpolate@0.2.4': {}
-
-  '@stdlib/string-base-format-tokenize@0.2.2': {}
 
   '@stdlib/string-base-format-tokenize@0.2.4': {}
 
@@ -675,17 +619,12 @@ snapshots:
       '@stdlib/string-base-camelcase': 0.2.3
       '@stdlib/string-format': 0.2.3
 
-  '@stdlib/string-capitalize@0.3.0':
+  '@stdlib/string-capitalize@0.3.1':
     dependencies:
-      '@stdlib/assert-is-string': 0.2.2
-      '@stdlib/error-tools-fmtprodmsg': 0.2.2
-      '@stdlib/string-base-capitalize': 0.3.0
-      '@stdlib/string-format': 0.2.2
-
-  '@stdlib/string-format@0.2.2':
-    dependencies:
-      '@stdlib/string-base-format-interpolate': 0.2.2
-      '@stdlib/string-base-format-tokenize': 0.2.2
+      '@stdlib/assert-is-string': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/string-base-capitalize': 0.3.1
+      '@stdlib/string-format': 0.2.3
 
   '@stdlib/string-format@0.2.3':
     dependencies:
@@ -696,19 +635,10 @@ snapshots:
 
   '@stdlib/types@0.4.3': {}
 
-  '@stdlib/utils-define-nonenumerable-read-only-property@0.2.2':
-    dependencies:
-      '@stdlib/utils-define-property': 0.2.4
-
   '@stdlib/utils-define-nonenumerable-read-only-property@0.2.3':
     dependencies:
       '@stdlib/types': 0.4.3
       '@stdlib/utils-define-property': 0.2.5
-
-  '@stdlib/utils-define-property@0.2.4':
-    dependencies:
-      '@stdlib/error-tools-fmtprodmsg': 0.2.2
-      '@stdlib/string-format': 0.2.2
 
   '@stdlib/utils-define-property@0.2.5':
     dependencies:
