@@ -28,7 +28,7 @@
     "p-queue": "8.1.1",
     "p-retry": "7.1.1",
     "rxjs": "7.8.2",
-    "to-valid-identifier": "0.1.1",
+    "to-valid-identifier": "1.0.0",
     "ts-morph": "26.0.0",
     "windmill-client": "1.644.0",
     "yaml": "2.8.2",
