@@ -15,8 +15,8 @@ importers:
         specifier: 0.3.1
         version: 0.3.1
       chalk:
-        specifier: 5.3.0
-        version: 5.3.0
+        specifier: 5.6.2
+        version: 5.6.2
       commander:
         specifier: 12.1.0
         version: 12.1.0
@@ -230,8 +230,8 @@ packages:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
 
-  chalk@5.3.0:
-    resolution: {integrity: sha512-dLitG79d+GV1Nb/VYcCDFivJeK1hiukt9QjRNVOsUtTy1rR1YJsmpGGTZ3qJos+uw7WmWF4wUwBd9jxjocFC2w==}
+  chalk@5.6.2:
+    resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
     engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
 
   cli-cursor@5.0.0:
@@ -685,7 +685,7 @@ snapshots:
     dependencies:
       fill-range: 7.1.1
 
-  chalk@5.3.0: {}
+  chalk@5.6.2: {}
 
   cli-cursor@5.0.0:
     dependencies:
