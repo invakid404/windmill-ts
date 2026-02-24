@@ -13,7 +13,7 @@
   "author": "Tsvetomir Bonev <me@invak.id>",
   "license": "Unlicense",
   "devDependencies": {
-    "@types/node": "22.19.11",
+    "@types/node": "24.10.13",
     "rimraf": "6.1.3",
     "typescript": "5.9.3"
   },
