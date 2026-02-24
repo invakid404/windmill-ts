@@ -22,7 +22,7 @@
     "@stdlib/string-capitalize": "0.3.1",
     "chalk": "5.3.0",
     "commander": "12.1.0",
-    "dedent": "1.5.3",
+    "dedent": "1.7.1",
     "json-schema-to-zod": "2.4.1",
     "listr2": "8.3.3",
     "p-queue": "8.0.1",
