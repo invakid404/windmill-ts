@@ -27,8 +27,8 @@ importers:
         specifier: 2.4.1
         version: 2.4.1
       listr2:
-        specifier: 8.2.5
-        version: 8.2.5
+        specifier: 8.3.3
+        version: 8.3.3
       p-queue:
         specifier: 8.0.1
         version: 8.0.1
@@ -353,8 +353,8 @@ packages:
     resolution: {integrity: sha512-aMoez9TxgnfLAIZaWTPaQ+j7rOt1K9Ew/TBI85XcnhcFlo/47b1MDgpi4r07XndLSZWOX/KsJiRJvhdzSvo2Dw==}
     hasBin: true
 
-  listr2@8.2.5:
-    resolution: {integrity: sha512-iyAZCeyD+c1gPyE9qpFu8af0Y+MRtmKOncdGoA2S5EY8iFq99dmmvkNnHiWo+pj0s7yH7l3KPIgee77tKpXPWQ==}
+  listr2@8.3.3:
+    resolution: {integrity: sha512-LWzX2KsqcB1wqQ4AHgYb4RsDXauQiqhjLk+6hjbaeHG4zpjjVAB6wC/gz6X0l+Du1cN3pUB5ZlrvTbhGSNnUQQ==}
     engines: {node: '>=18.0.0'}
 
   log-update@6.1.0:
@@ -782,7 +782,7 @@ snapshots:
 
   json-schema-to-zod@2.4.1: {}
 
-  listr2@8.2.5:
+  listr2@8.3.3:
     dependencies:
       cli-truncate: 4.0.0
       colorette: 2.0.20
