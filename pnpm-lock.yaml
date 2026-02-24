@@ -54,8 +54,8 @@ importers:
         specifier: 4.0.5
         version: 4.0.5
       zod-to-json-schema:
-        specifier: 3.24.6
-        version: 3.24.6(zod@4.0.5)
+        specifier: 3.25.1
+        version: 3.25.1(zod@4.0.5)
     devDependencies:
       '@types/node':
         specifier: 22.9.0
@@ -466,10 +466,10 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
 
-  zod-to-json-schema@3.24.6:
-    resolution: {integrity: sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==}
+  zod-to-json-schema@3.25.1:
+    resolution: {integrity: sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA==}
     peerDependencies:
-      zod: ^3.24.1
+      zod: ^3.25 || ^4
 
   zod@4.0.5:
     resolution: {integrity: sha512-/5UuuRPStvHXu7RS+gmvRf4NXrNxpSllGwDnCBcJZtQsKrviYXm54yDGV2KYNLT5kq0lHGcl7lqWJLgSaG+tgA==}
@@ -815,7 +815,7 @@ snapshots:
 
   yaml@2.8.2: {}
 
-  zod-to-json-schema@3.24.6(zod@4.0.5):
+  zod-to-json-schema@3.25.1(zod@4.0.5):
     dependencies:
       zod: 4.0.5
 
