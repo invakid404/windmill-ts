@@ -20,13 +20,11 @@ export async function* listScripts(concurrency?: number) {
     }
 
     const promises = pageData.map(({ path }) =>
-      queue.add(
-        () =>
-          wmill.ScriptService.getScriptByPath({
-            workspace,
-            path,
-          }),
-        { throwOnTimeout: true },
+      queue.add(() =>
+        wmill.ScriptService.getScriptByPath({
+          workspace,
+          path,
+        }),
       ),
     );
 

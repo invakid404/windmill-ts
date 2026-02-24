@@ -25,7 +25,7 @@
     "dedent": "1.7.1",
     "json-schema-to-zod": "2.7.0",
     "listr2": "10.1.1",
-    "p-queue": "8.1.1",
+    "p-queue": "9.1.0",
     "p-retry": "7.1.1",
     "rxjs": "7.8.2",
     "to-valid-identifier": "1.0.0",

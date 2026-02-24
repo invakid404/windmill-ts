@@ -20,13 +20,11 @@ export async function* listFlows(concurrency?: number) {
     }
 
     const promises = pageData.map(({ path }) =>
-      queue.add(
-        () =>
-          wmill.FlowService.getFlowByPath({
-            workspace,
-            path,
-          }),
-        { throwOnTimeout: true },
+      queue.add(() =>
+        wmill.FlowService.getFlowByPath({
+          workspace,
+          path,
+        }),
       ),
     );
 
