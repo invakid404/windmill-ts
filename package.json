@@ -30,7 +30,7 @@
     "rxjs": "7.8.2",
     "to-valid-identifier": "0.1.1",
     "ts-morph": "26.0.0",
-    "windmill-client": "1.522.0",
+    "windmill-client": "1.644.0",
     "yaml": "2.8.2",
     "zod": "4.0.5",
     "zod-to-json-schema": "3.24.6"
