@@ -21,8 +21,8 @@ importers:
         specifier: 12.1.0
         version: 12.1.0
       dedent:
-        specifier: 1.5.3
-        version: 1.5.3
+        specifier: 1.7.1
+        version: 1.7.1
       json-schema-to-zod:
         specifier: 2.4.1
         version: 2.4.1
@@ -248,8 +248,8 @@ packages:
     resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
     engines: {node: '>=18'}
 
-  dedent@1.5.3:
-    resolution: {integrity: sha512-NHQtfOOW68WD8lgypbLA5oT+Bt0xXJhiYvoR6SmmNXZfpzOGXwdKWmcwG8N7PwVVWV3eF/68nmD9BaJSsTBhyQ==}
+  dedent@1.7.1:
+    resolution: {integrity: sha512-9JmrhGZpOlEgOLdQgSm0zxFaYoQon408V1v49aqTWuXENVlnCuY9JBZcXZiCsZQWDjTm5Qf/nIvAy77mXDAjEg==}
     peerDependencies:
       babel-plugin-macros: ^3.1.0
     peerDependenciesMeta:
@@ -619,7 +619,7 @@ snapshots:
 
   commander@12.1.0: {}
 
-  dedent@1.5.3: {}
+  dedent@1.7.1: {}
 
   emoji-regex@10.4.0: {}
 
