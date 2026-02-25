@@ -61,6 +61,9 @@ export const runTasks = async <T,>(
 
       task.promise = def.task(observer).then(
         (result) => {
+          if (task.status === "failed") {
+            throw task.error;
+          }
           if (task.status === "running") task.status = "done";
           return result;
         },
