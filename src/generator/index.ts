@@ -7,11 +7,10 @@ import { generateScripts } from "./scripts.js";
 import { generateResources } from "./resources.js";
 import { generateFlows } from "./flows.js";
 import { runWithBuffer } from "./common.js";
-import { Listr } from "listr2";
-import { Observable, Subscriber } from "rxjs";
+import { runTasks, type Observer } from "./taskRunner.js";
 import { Config, getConfig } from "../config/index.js";
 
-export type Observer = Subscriber<string>;
+export type { Observer };
 
 export type GenerateOptions = {
   spinners?: boolean;
@@ -37,10 +36,6 @@ const subtasks = {
   },
 } as const satisfies Record<string, Task>;
 
-type ListrContext = {
-  results: Array<ReturnType<typeof runWithBuffer>>;
-};
-
 export const generate = async (
   output: Writable,
   outputDir: string,
@@ -55,28 +50,17 @@ export const generate = async (
   return run(output, outputDir, allResourceTypes, async () => {
     await writePreamble();
 
-    const tasks = new Listr(
-      Object.entries(subtasks).map(([name, task], idx) => {
-        return {
+    const results = (
+      await runTasks(
+        Object.entries(subtasks).map(([name, task]) => ({
           title: name,
-          task: (ctx: ListrContext) =>
-            new Observable((subscriber) => {
-              ctx.results ??= [];
-              ctx.results[idx] = runWithBuffer(() => task.runner(subscriber));
-            }),
+          task: (observer: Observer) =>
+            runWithBuffer(() => task.runner(observer)),
           enabled: !config || task.isEnabled(config),
-          rendererOptions: {
-            persistentOutput: true,
-          },
-        };
-      }),
-      { concurrent: true, renderer: spinners ? "default" : "silent" },
-    );
-
-    const ctx = await tasks.run();
-    const results = await Promise.all(ctx.results).then((results) =>
-      results.filter((result) => result != null),
-    );
+        })),
+        { silent: !spinners },
+      )
+    ).filter((result) => result != null);
 
     for (const { buffer } of results) {
       await pipeline(buffer, output, { end: false });
