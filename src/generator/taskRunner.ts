@@ -81,6 +81,27 @@ export const runTasks = async <T,>(
     return Promise.all(tasks.map((t) => t.promise));
   }
 
+  const isTTY = process.stdout.isTTY ?? false;
+
+  if (!isTTY) {
+    const settled = await Promise.allSettled(tasks.map((t) => t.promise));
+
+    for (const task of tasks) {
+      const icon = task.status === "failed" ? "✖" : "✔";
+      const suffix = task.message ? ` [${task.message}]` : "";
+      console.log(`${icon} ${task.title}${suffix}`);
+    }
+
+    const results: T[] = [];
+    for (const outcome of settled) {
+      if (outcome.status === "rejected") {
+        throw outcome.reason;
+      }
+      results.push(outcome.value);
+    }
+    return results;
+  }
+
   const spinner = cliSpinners.dots;
   let frameIdx = 0;
 
