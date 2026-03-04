@@ -45,8 +45,8 @@ importers:
         specifier: 27.0.2
         version: 27.0.2
       windmill-client:
-        specifier: 1.644.0
-        version: 1.644.0
+        specifier: 1.649.0
+        version: 1.649.0
       yaml:
         specifier: 2.8.2
         version: 2.8.2
@@ -365,8 +365,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  windmill-client@1.644.0:
-    resolution: {integrity: sha512-3OcGtWIX34Xfma0OYbLqEVvXMdDe8GaBPBQn8zuZAI9vVaVFuLM4iDa0Tyo5gFHPqJYkmnnLjxGXVVYKTJ2k3g==}
+  windmill-client@1.649.0:
+    resolution: {integrity: sha512-iPfAHiOM2dP3Vy3k30bC6srmuH97xqs9cY2H4GKzq+8tBLbpbhRohkQlV3jIF3S659Mrx2vce8i+QZyUbHR4gg==}
 
   wrap-ansi@10.0.0:
     resolution: {integrity: sha512-SGcvg80f0wUy2/fXES19feHMz8E0JoXv2uNgHOu4Dgi2OrCy1lqwFYEJz1BLbDI0exjPMe/ZdzZ/YpGECBG/aQ==}
@@ -620,7 +620,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  windmill-client@1.644.0: {}
+  windmill-client@1.649.0: {}
 
   wrap-ansi@10.0.0:
     dependencies:
