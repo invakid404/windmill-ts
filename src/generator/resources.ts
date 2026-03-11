@@ -84,7 +84,7 @@ const getPreamble = (embed: EmbedPreambleOptions) => dedent`
     ApplyTransformer<typeof ${resourceTransformerName}, Resource>
   >;
 
-  type GetResourceOptions = { skipValidation?: boolean };
+  type GetResourceOptions = { skipValidation?: boolean; skipTransformer?: boolean };
 
   type GetResource = {
     <Path extends keyof typeof ${resourceToTypeMap}>(
@@ -120,6 +120,10 @@ const getPreamble = (embed: EmbedPreambleOptions) => dedent`
 
     const data = ${getDataFetchExpr(embed)};
     const parsedData = options?.skipValidation ? data : schema.parse(data);
+
+    if (options?.skipTransformer) {
+      return parsedData;
+    }
 
     const transformer = ${resourceTransformerName}.prototype.do;
 
