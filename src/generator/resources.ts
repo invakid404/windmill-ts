@@ -1,5 +1,5 @@
 import toValidIdentifier from "to-valid-identifier";
-import { listResources } from "../windmill/resources.js";
+import { listResources, getResourceValue } from "../windmill/resources.js";
 import type { JSONSchema } from "./types.js";
 import { getContext } from "./context.js";
 import { schemaToZod } from "./common.js";
@@ -16,6 +16,8 @@ const resourceTransformerName = "_resourcesTransformer";
 const defaultResourceTransformerName = "_DefaultResourceTransformer";
 
 const defaultPerResourceTypeMap = "defaultPerResourceType";
+const embeddedResourcesMapName = "_embeddedResources";
+const resolveVariablesFnName = "_resolveVariables";
 
 const defaultResourceTransformer = dedent`
   class ${defaultResourceTransformerName} implements Transformer {
@@ -26,7 +28,37 @@ const defaultResourceTransformer = dedent`
   }
 `;
 
-const preamble = dedent`
+const resolveVariablesFnCode = dedent`
+  async function ${resolveVariablesFnName}(obj: unknown): Promise<unknown> {
+    if (typeof obj === "string" && obj.startsWith("$var:")) {
+      return wmill.getVariable(obj.substring(5));
+    }
+    if (Array.isArray(obj)) {
+      return Promise.all(obj.map(${resolveVariablesFnName}));
+    }
+    if (obj != null && typeof obj === "object") {
+      const entries = await Promise.all(
+        Object.entries(obj).map(async ([k, v]) => [k, await ${resolveVariablesFnName}(v)] as const)
+      );
+      return Object.fromEntries(entries);
+    }
+    return obj;
+  }
+`;
+
+type EmbedPreambleOptions = {
+  enabled: boolean;
+  resolveVariables: boolean;
+};
+
+const getDataFetchExpr = (embed: EmbedPreambleOptions) => {
+  if (!embed.enabled) return `await wmill.getResource(path)`;
+  if (embed.resolveVariables)
+    return `path in ${embeddedResourcesMapName} ? await ${resolveVariablesFnName}(${embeddedResourcesMapName}[path]) : await wmill.getResource(path)`;
+  return `path in ${embeddedResourcesMapName} ? structuredClone(${embeddedResourcesMapName}[path]) : await wmill.getResource(path)`;
+};
+
+const getPreamble = (embed: EmbedPreambleOptions) => dedent`
   export type Cast<T, U> = T extends U ? T : U;
 
   export interface Transformer {
@@ -76,7 +108,7 @@ const preamble = dedent`
       );
     }
 
-    const data = await wmill.getResource(path);
+    const data = ${getDataFetchExpr(embed)};
     const parsedData = options?.skipValidation ? data : schema.parse(data);
 
     const transformer = ${resourceTransformerName}.prototype.do;
@@ -199,7 +231,11 @@ export const generateResources = async (observer: Observer) => {
     );
   }
 
-  await write(preamble);
+  const hasEmbeddedResources = config.resources.embed.paths.length > 0;
+  await write(getPreamble({
+    enabled: hasEmbeddedResources,
+    resolveVariables: config.resources.embed.resolveVariables,
+  }));
 
   observer.next("Fetching all resources...");
   const resourcesByType = new Map<string, string[]>();
@@ -213,6 +249,29 @@ export const generateResources = async (observer: Observer) => {
 
     const paths = resourcesByType.get(resourceTypeName) ?? [];
     resourcesByType.set(resourceTypeName, [...paths, path]);
+  }
+
+  const embeddedValues = new Map<string, unknown>();
+
+  if (hasEmbeddedResources) {
+    observer.next("Fetching embedded resource values...");
+
+    const allKnownPaths = new Set(
+      [...resourcesByType.values()].flat(),
+    );
+
+    for (const embedPath of config.resources.embed.paths) {
+      if (!allKnownPaths.has(embedPath)) {
+        throw new Error(
+          `Embedded resource path ${JSON.stringify(embedPath)} not found in workspace`,
+        );
+      }
+    }
+
+    for (const embedPath of config.resources.embed.paths) {
+      const value = await getResourceValue(embedPath);
+      embeddedValues.set(embedPath, value);
+    }
   }
 
   observer.next("Generating schemas...");
@@ -252,6 +311,18 @@ export const generateResources = async (observer: Observer) => {
     if (defaultPath != null) {
       defaultPerResourceType.set(resourceTypeName, defaultPath);
     }
+  }
+
+  if (embeddedValues.size > 0) {
+    if (config.resources.embed.resolveVariables) {
+      await write(resolveVariablesFnCode);
+    }
+
+    await write(`const ${embeddedResourcesMapName} = {`);
+    for (const [resPath, value] of embeddedValues) {
+      await write(`${JSON.stringify(resPath)}: ${JSON.stringify(value)},`);
+    }
+    await write(`} as const;`);
   }
 
   await write(`const ${resourceToTypeMap} = lazyObject(() => ({`);

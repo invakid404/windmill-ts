@@ -2,6 +2,15 @@ import * as wmill from "windmill-client";
 
 const PER_PAGE = 20;
 
+/**
+ * Fetches the raw (non-interpolated) value of a resource.
+ * $var: references are NOT resolved — they remain as literal strings.
+ */
+export async function getResourceValue(path: string): Promise<unknown> {
+  const workspace = process.env["WM_WORKSPACE"]!;
+  return wmill.ResourceService.getResourceValue({ workspace, path });
+}
+
 export async function* listResources(resourceType?: string) {
   const workspace = process.env["WM_WORKSPACE"]!;
 

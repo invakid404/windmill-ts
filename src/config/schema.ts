@@ -11,6 +11,15 @@ const TransformerSchema = z
   })
   .nullish();
 
+const EmbedSchema = z
+  .object({
+    // Resource paths whose values should be embedded in the generated client
+    paths: z.array(z.string()).default([]),
+    // Whether to resolve $var: references dynamically at runtime
+    resolveVariables: z.boolean().default(true),
+  })
+  .prefault({});
+
 const ResourceOptionsSchema = z
   .object({
     // Map from resource type to default resource path
@@ -20,6 +29,8 @@ const ResourceOptionsSchema = z
     // When true, resource type schemas will use z.looseObject() instead of z.object()
     // to allow passthrough of unknown fields
     looseSchemas: z.boolean().default(false),
+    // Embed resource values directly in the generated client
+    embed: EmbedSchema,
   })
   .prefault({});
 
