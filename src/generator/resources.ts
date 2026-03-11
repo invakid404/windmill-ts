@@ -49,13 +49,23 @@ const resolveVariablesFnCode = dedent`
 type EmbedPreambleOptions = {
   enabled: boolean;
   resolveVariables: boolean;
+  hasResourcesWithVars: boolean;
 };
 
 const getDataFetchExpr = (embed: EmbedPreambleOptions) => {
   if (!embed.enabled) return `await wmill.getResource(path)`;
-  if (embed.resolveVariables)
-    return `path in ${embeddedResourcesMapName} ? await ${resolveVariablesFnName}(${embeddedResourcesMapName}[path]) : await wmill.getResource(path)`;
-  return `path in ${embeddedResourcesMapName} ? structuredClone(${embeddedResourcesMapName}[path]) : await wmill.getResource(path)`;
+  const entry = `${embeddedResourcesMapName}[path]`;
+  if (!embed.resolveVariables || !embed.hasResourcesWithVars)
+    return `path in ${embeddedResourcesMapName} ? structuredClone(${entry}.value) : await wmill.getResource(path)`;
+  return `path in ${embeddedResourcesMapName} ? (${entry}.hasVars ? await ${resolveVariablesFnName}(${entry}.value) : structuredClone(${entry}.value)) : await wmill.getResource(path)`;
+};
+
+const hasVarReferences = (obj: unknown): boolean => {
+  if (typeof obj === "string") return obj.startsWith("$var:");
+  if (Array.isArray(obj)) return obj.some(hasVarReferences);
+  if (obj != null && typeof obj === "object")
+    return Object.values(obj).some(hasVarReferences);
+  return false;
 };
 
 const getPreamble = (embed: EmbedPreambleOptions) => dedent`
@@ -231,18 +241,15 @@ export const generateResources = async (observer: Observer) => {
     );
   }
 
-  const hasEmbeddedResources = config.resources.embed.paths.length > 0;
-  await write(getPreamble({
-    enabled: hasEmbeddedResources,
-    resolveVariables: config.resources.embed.resolveVariables,
-  }));
-
   observer.next("Fetching all resources...");
   const resourcesByType = new Map<string, string[]>();
+  const allWorkspacePaths = new Map<string, string>();
   for await (const {
     resource_type: resourceTypeName,
     path,
   } of listResources()) {
+    allWorkspacePaths.set(path, resourceTypeName);
+
     if (!(resourceTypeName in allResourceTypes)) {
       continue;
     }
@@ -251,7 +258,9 @@ export const generateResources = async (observer: Observer) => {
     resourcesByType.set(resourceTypeName, [...paths, path]);
   }
 
+  const hasEmbeddedResources = config.resources.embed.paths.length > 0;
   const embeddedValues = new Map<string, unknown>();
+  const embeddedPathsWithVars = new Set<string>();
 
   if (hasEmbeddedResources) {
     observer.next("Fetching embedded resource values...");
@@ -262,6 +271,12 @@ export const generateResources = async (observer: Observer) => {
 
     for (const embedPath of config.resources.embed.paths) {
       if (!allKnownPaths.has(embedPath)) {
+        const resourceType = allWorkspacePaths.get(embedPath);
+        if (resourceType != null) {
+          throw new Error(
+            `Embedded resource ${JSON.stringify(embedPath)} has unsupported resource type ${JSON.stringify(resourceType)}`,
+          );
+        }
         throw new Error(
           `Embedded resource path ${JSON.stringify(embedPath)} not found in workspace`,
         );
@@ -269,10 +284,28 @@ export const generateResources = async (observer: Observer) => {
     }
 
     for (const embedPath of config.resources.embed.paths) {
-      const value = await getResourceValue(embedPath);
+      let value: unknown;
+      try {
+        value = await getResourceValue(embedPath);
+      } catch (err) {
+        throw new Error(
+          `Failed to fetch embedded resource ${JSON.stringify(embedPath)}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
       embeddedValues.set(embedPath, value);
+
+      if (hasVarReferences(value)) {
+        embeddedPathsWithVars.add(embedPath);
+      }
     }
   }
+
+  const hasResourcesWithVars = embeddedPathsWithVars.size > 0;
+  await write(getPreamble({
+    enabled: hasEmbeddedResources,
+    resolveVariables: config.resources.embed.resolveVariables,
+    hasResourcesWithVars,
+  }));
 
   observer.next("Generating schemas...");
 
@@ -314,13 +347,14 @@ export const generateResources = async (observer: Observer) => {
   }
 
   if (embeddedValues.size > 0) {
-    if (config.resources.embed.resolveVariables) {
+    if (config.resources.embed.resolveVariables && hasResourcesWithVars) {
       await write(resolveVariablesFnCode);
     }
 
     await write(`const ${embeddedResourcesMapName} = {`);
     for (const [resPath, value] of embeddedValues) {
-      await write(`${JSON.stringify(resPath)}: ${JSON.stringify(value)},`);
+      const hasVars = embeddedPathsWithVars.has(resPath);
+      await write(`  ${JSON.stringify(resPath)}: { value: ${JSON.stringify(value)}, hasVars: ${hasVars} },`);
     }
     await write(`} as const;`);
   }
