@@ -33,7 +33,7 @@
     "windmill-client": "1.654.0",
     "yaml": "2.8.3",
     "zod": "4.3.6",
-    "zod-to-json-schema": "3.25.1"
+    "zod-to-json-schema": "3.25.2"
   },
   "repository": {
     "type": "git",
