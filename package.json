@@ -35,6 +35,12 @@
     "zod": "4.3.6",
     "zod-to-json-schema": "3.25.2"
   },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@<5.0.5": ">=5.0.5",
+      "picomatch@<4.0.4": ">=4.0.4"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/invakid404/windmill-ts.git"
