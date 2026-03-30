@@ -30,7 +30,7 @@
     "p-retry": "8.0.0",
     "to-valid-identifier": "1.0.0",
     "ts-morph": "27.0.2",
-    "windmill-client": "1.666.0",
+    "windmill-client": "1.668.5",
     "yaml": "2.8.3",
     "zod": "4.3.6",
     "zod-to-json-schema": "3.25.2"
