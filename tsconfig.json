@@ -9,7 +9,8 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["node_modules"]
