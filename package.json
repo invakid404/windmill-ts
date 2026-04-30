@@ -26,7 +26,7 @@
     "dedent": "1.7.2",
     "json-schema-to-zod": "2.8.0",
     "log-update": "7.2.0",
-    "p-queue": "9.1.0",
+    "p-queue": "9.2.0",
     "p-retry": "8.0.0",
     "to-valid-identifier": "1.0.0",
     "ts-morph": "27.0.2",
