@@ -32,7 +32,7 @@
     "ts-morph": "27.0.2",
     "windmill-client": "1.668.5",
     "yaml": "2.8.3",
-    "zod": "4.3.6",
+    "zod": "4.4.3",
     "zod-to-json-schema": "3.25.2"
   },
   "pnpm": {
