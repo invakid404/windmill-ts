@@ -31,8 +31,8 @@ importers:
         specifier: 1.7.2
         version: 1.7.2
       json-schema-to-zod:
-        specifier: 2.8.0
-        version: 2.8.0
+        specifier: 2.8.1
+        version: 2.8.1
       log-update:
         specifier: 7.2.0
         version: 7.2.0
@@ -267,8 +267,8 @@ packages:
     resolution: {integrity: sha512-6oIwpsgRfnDiyEDLMay/GqCl3HoAtH5+RUKW29gYkL0QA+ipzpDLA16yQs7/RHCSu+BwgbJaOUqa4A99qNVQVw==}
     engines: {node: '>=16'}
 
-  json-schema-to-zod@2.8.0:
-    resolution: {integrity: sha512-0c5uztkkxXEMIofz1Ia06eNZp9uZSFgz//+pd4biGSY1wxkwdVLWKf6njIPcBFO8P/Ic2np6ArpHNNMELHd5OA==}
+  json-schema-to-zod@2.8.1:
+    resolution: {integrity: sha512-fRr1mHgZ7hboLKBUdR428gd9dIHUFGivUqOeiDcSmyXkNZCtB1uGaZLvsjZ4GaN5pwBIs+TGIOf6s+Rp5/R/zA==}
     hasBin: true
 
   log-update@7.2.0:
@@ -531,7 +531,7 @@ snapshots:
 
   is-network-error@1.3.0: {}
 
-  json-schema-to-zod@2.8.0: {}
+  json-schema-to-zod@2.8.1: {}
 
   log-update@7.2.0:
     dependencies:
