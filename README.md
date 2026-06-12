@@ -89,6 +89,16 @@ resources:
     # Optional extension to append to the import (e.g., ".ts" or ".js")
     importExtension: ".js"
 
+  # Optional resolver hook consulted before the generated client falls back to
+  # embedded resource values or wmill.getResource(path).
+  resolver:
+    # Import path for the resolver, relative to the config
+    importPath: "./resource-resolver"
+    # Name of the exported resolver function
+    importName: "resolveResource"
+    # Optional extension to append to the import (e.g., ".ts" or ".js")
+    importExtension: ".js"
+
 # Script generation configuration
 scripts:
   # Whether to generate script-related code (default: true)
@@ -148,6 +158,55 @@ const flowResult = await runFlow("my/flow/path", {
 const resource = await getResource("my/resource/path");
 // TypeScript will infer the correct type based on the resource type
 ```
+
+### Resource Resolver Hook
+
+Generated clients export a `ResourceResolver` hook API. A resolver can return a
+resource value before the normal generated behavior runs. Returning `undefined`
+continues to the default behavior: embedded value first when configured, then
+`wmill.getResource(path)`. Returned values still go through normal validation
+and resource transformers unless the caller uses `skipValidation` or
+`skipTransformer`.
+
+Configured resolvers are imported from `resources.resolver`:
+
+```typescript
+import type { ResourceResolver } from "./generated-client";
+
+export const resolveResource: ResourceResolver = ({ path }) => {
+  if (path === "f/app/redis" && !process.env["WM_JOB_ID"]) {
+    return {
+      value: {
+        host: process.env["REDIS_HOST"],
+        port: Number(process.env["REDIS_PORT"] ?? 6379),
+      },
+    };
+  }
+
+  return undefined;
+};
+```
+
+You can also register or replace a resolver at runtime:
+
+```typescript
+import { resolvedResource, setResourceResolver } from "./generated-client";
+
+setResourceResolver(({ path }) => {
+  if (path === "f/app/redis") {
+    return resolvedResource({ host: "localhost", port: 6379 });
+  }
+
+  return undefined;
+});
+```
+
+The resolver context includes:
+
+- `path` and `resourceType`
+- `options`, the `getResource` options for the current call
+- `hasEmbeddedResource`
+- `resolveEmbedded()`, `fetchResource()`, and `resolveDefault()` helpers
 
 ## How It Works
 
