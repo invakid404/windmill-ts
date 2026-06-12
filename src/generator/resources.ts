@@ -77,17 +77,22 @@ const resolveConfiguredImport = (
 
   let importPath = path.resolve(configDir, hook.importPath);
   importPath = path.relative(outputDir, importPath);
+  importPath = importPath.replace(/\\/g, "/");
   if (!importPath.startsWith("./") && !importPath.startsWith("../")) {
     importPath = `./${importPath}`;
   }
 
-  const extension = path.extname(importPath);
-  if (extension) {
-    importPath = importPath.slice(0, -extension.length);
+  if (hook.importExtension) {
+    const extension = path.extname(importPath);
+    if (extension) {
+      importPath = importPath.slice(0, -extension.length);
+    }
   }
 
   return {
-    importPath: `${importPath}${hook.importExtension ?? ""}`,
+    importPath: hook.importExtension
+      ? `${importPath}${hook.importExtension}`
+      : importPath,
     importName: hook.importName,
   };
 };

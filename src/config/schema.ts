@@ -3,9 +3,9 @@ import { z } from "zod";
 const ImportHookSchema = z
   .object({
     // Import path for the hook, relative to the config
-    importPath: z.string(),
+    importPath: z.string().min(1),
     // Name of the exported hook
-    importName: z.string(),
+    importName: z.string().min(1),
     // Extension to append to the import, if necessary (e.g., '.js' or '.ts')
     importExtension: z.string().default(""),
   })
