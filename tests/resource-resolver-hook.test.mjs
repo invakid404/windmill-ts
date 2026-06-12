@@ -198,7 +198,7 @@ test("config schema accepts a resource resolver hook import", () => {
   });
 });
 
-test("config schema rejects empty resource hook import fields", () => {
+test("config schema rejects invalid resource hook import fields", () => {
   assert.throws(() =>
     ConfigSchema.parse({
       resources: {
@@ -220,6 +220,33 @@ test("config schema rejects empty resource hook import fields", () => {
       },
     }),
   );
+
+  for (const importName of ["resolve-resource", " resolveResource", "123resolver"]) {
+    assert.throws(() =>
+      ConfigSchema.parse({
+        resources: {
+          resolver: {
+            importPath: "./resolver",
+            importName,
+          },
+        },
+      }),
+    );
+  }
+
+  for (const importExtension of ["js", ".", ".d.ts", ".js "]) {
+    assert.throws(() =>
+      ConfigSchema.parse({
+        resources: {
+          resolver: {
+            importPath: "./resolver",
+            importName: "resolveResource",
+            importExtension,
+          },
+        },
+      }),
+    );
+  }
 });
 
 test("configured hook imports are relative to generated output", () => {

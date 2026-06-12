@@ -1,13 +1,25 @@
 import { z } from "zod";
 
+const ImportNameSchema = z
+  .string()
+  .regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/, "Must be a valid JavaScript identifier");
+
+const ImportExtensionSchema = z
+  .string()
+  .regex(
+    /^(?:|\.[A-Za-z0-9]+)$/,
+    "Must be empty or a dot-prefixed extension",
+  )
+  .default("");
+
 const ImportHookSchema = z
   .object({
     // Import path for the hook, relative to the config
     importPath: z.string().min(1),
     // Name of the exported hook
-    importName: z.string().min(1),
+    importName: ImportNameSchema,
     // Extension to append to the import, if necessary (e.g., '.js' or '.ts')
-    importExtension: z.string().default(""),
+    importExtension: ImportExtensionSchema,
   })
   .nullish();
 
