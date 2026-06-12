@@ -187,10 +187,12 @@ export const resolveResource: ResourceResolver = ({ path }) => {
 };
 ```
 
-Configured resolvers are runtime imports used by the generated client in every
-runtime that imports it. Avoid value-import cycles back to the generated client;
-use `import type` for generated-client types, and keep top-level app-only side
-effects out of configured resolver modules.
+Configured resolver modules are imported by the generated client in every
+environment that imports the client, so their top-level imports and side effects
+run everywhere. Keep top-level imports safe for all target runtimes; if a
+resolver needs a module that is only available in one environment, load it with a
+dynamic `import()` inside that branch. Use `import type` for generated-client
+types to avoid a value-import cycle back into the generated client.
 
 You can also register or replace a resolver at runtime:
 
