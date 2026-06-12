@@ -19,14 +19,18 @@ export async function* listScripts(concurrency?: number) {
       break;
     }
 
-    const promises = pageData.map(({ path }) =>
-      queue.add(() =>
+    const promises = pageData.map(async ({ path }) => {
+      const script = await queue.add(() =>
         wmill.ScriptService.getScriptByPath({
           workspace,
           path,
         }),
-      ),
-    );
+      );
+      if (script == null) {
+        throw new Error(`Script ${JSON.stringify(path)} returned no data`);
+      }
+      return script;
+    });
 
     yield* promises;
   }
