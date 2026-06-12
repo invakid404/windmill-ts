@@ -14,6 +14,7 @@ const resourceTypesTypeName = "ResourceTypes";
 
 const resourceTransformerName = "_resourcesTransformer";
 const defaultResourceTransformerName = "_DefaultResourceTransformer";
+const configuredResourceResolverName = "_configuredResourceResolver";
 
 const defaultPerResourceTypeMap = "defaultPerResourceType";
 const embeddedResourcesMapName = "_embeddedResources";
@@ -52,12 +53,76 @@ type EmbedPreambleOptions = {
   hasResourcesWithVars: boolean;
 };
 
-const getDataFetchExpr = (embed: EmbedPreambleOptions) => {
-  if (!embed.enabled) return `await wmill.getResource(path)`;
-  const entry = `${embeddedResourcesMapName}[path]`;
-  if (!embed.resolveVariables || !embed.hasResourcesWithVars)
-    return `path in ${embeddedResourcesMapName} ? structuredClone(${entry}.value) : await wmill.getResource(path)`;
-  return `path in ${embeddedResourcesMapName} ? (${entry}.hasVars ? await ${resolveVariablesFnName}(${entry}.value) : structuredClone(${entry}.value)) : await wmill.getResource(path)`;
+type ResourcePreambleOptions = {
+  embed: EmbedPreambleOptions;
+  hasConfiguredResourceResolver: boolean;
+};
+
+type ImportHookConfig = {
+  importPath: string;
+  importName: string;
+  importExtension?: string;
+} | null | undefined;
+
+const resolveConfiguredImport = (
+  hook: ImportHookConfig,
+  outputDir: string,
+  configPath: string | null,
+) => {
+  if (!hook?.importPath || !hook.importName) {
+    return null;
+  }
+
+  const configDir = configPath ? path.dirname(configPath) : process.cwd();
+
+  let importPath = path.resolve(configDir, hook.importPath);
+  importPath = path.relative(outputDir, importPath);
+  if (!importPath.startsWith("./") && !importPath.startsWith("../")) {
+    importPath = `./${importPath}`;
+  }
+
+  const extension = path.extname(importPath);
+  if (extension) {
+    importPath = importPath.slice(0, -extension.length);
+  }
+
+  return {
+    importPath: `${importPath}${hook.importExtension ?? ""}`,
+    importName: hook.importName,
+  };
+};
+
+const getEmbeddedResolverCode = (embed: EmbedPreambleOptions) => {
+  if (!embed.enabled) {
+    return dedent`
+      const _hasEmbeddedResource = (_path: string) => false;
+
+      const _resolveEmbeddedResource = async (
+        _path: string,
+      ): Promise<unknown | undefined> => undefined;
+    `;
+  }
+
+  const valueExpression =
+    embed.resolveVariables && embed.hasResourcesWithVars
+      ? `entry.hasVars ? await ${resolveVariablesFnName}(entry.value) : structuredClone(entry.value)`
+      : "structuredClone(entry.value)";
+
+  return dedent`
+    const _hasEmbeddedResource = (path: string) =>
+      path in ${embeddedResourcesMapName};
+
+    const _resolveEmbeddedResource = async (
+      path: string,
+    ): Promise<unknown | undefined> => {
+      if (!_hasEmbeddedResource(path)) {
+        return undefined;
+      }
+
+      const entry = ${embeddedResourcesMapName}[path as keyof typeof ${embeddedResourcesMapName}];
+      return ${valueExpression};
+    };
+  `;
 };
 
 const hasVarReferences = (obj: unknown): boolean => {
@@ -68,7 +133,10 @@ const hasVarReferences = (obj: unknown): boolean => {
   return false;
 };
 
-const getPreamble = (embed: EmbedPreambleOptions) => dedent`
+const getPreamble = ({
+  embed,
+  hasConfiguredResourceResolver,
+}: ResourcePreambleOptions) => dedent`
   export type Cast<T, U> = T extends U ? T : U;
 
   export interface Transformer {
@@ -84,7 +152,89 @@ const getPreamble = (embed: EmbedPreambleOptions) => dedent`
     ApplyTransformer<typeof ${resourceTransformerName}, Resource>
   >;
 
-  type GetResourceOptions = { skipValidation?: boolean; skipTransformer?: boolean };
+  export type GetResourceOptions = {
+    skipValidation?: boolean;
+    skipTransformer?: boolean;
+  };
+
+  export type ResourcePath = keyof typeof ${resourceToTypeMap};
+  export type ResourceTypeName = keyof ${resourceTypesTypeName} & string;
+
+  export type ResourceResolverContext = {
+    path: string;
+    resourceType: ResourceTypeName;
+    options: Readonly<GetResourceOptions>;
+    hasEmbeddedResource: boolean;
+    resolveEmbedded: () => Promise<unknown | undefined>;
+    fetchResource: () => Promise<unknown>;
+    resolveDefault: () => Promise<unknown>;
+  };
+
+  export type ResourceResolverResult = { value: unknown } | undefined;
+
+  export const resolvedResource = (value: unknown): ResourceResolverResult => ({
+    value,
+  });
+
+  export type ResourceResolver = (
+    context: ResourceResolverContext,
+  ) => ResourceResolverResult | Promise<ResourceResolverResult>;
+
+  let _runtimeResourceResolver: ResourceResolver | undefined;
+
+  export const setResourceResolver = (
+    resolver: ResourceResolver | undefined,
+  ) => {
+    _runtimeResourceResolver = resolver;
+  };
+
+  export const getResourceResolver = (): ResourceResolver | undefined =>
+    _runtimeResourceResolver ?? ${hasConfiguredResourceResolver ? configuredResourceResolverName : "undefined"};
+
+  ${getEmbeddedResolverCode(embed)}
+
+  const _fetchResource = (path: string): Promise<unknown> =>
+    wmill.getResource(path);
+
+  const _resolveDefaultResource = async (path: string): Promise<unknown> => {
+    const embeddedResource = await _resolveEmbeddedResource(path);
+    if (embeddedResource !== undefined) {
+      return embeddedResource;
+    }
+
+    return _fetchResource(path);
+  };
+
+  const _resolveResourceData = async ({
+    path,
+    resourceType,
+    options,
+  }: {
+    path: string;
+    resourceType: ResourceTypeName;
+    options?: GetResourceOptions;
+  }): Promise<unknown> => {
+    const resolver = getResourceResolver();
+    const resolverOptions = Object.freeze({ ...(options ?? {}) });
+
+    const resolveDefault = () => _resolveDefaultResource(path);
+
+    if (resolver == null) {
+      return resolveDefault();
+    }
+
+    const resolved = await resolver({
+      path,
+      resourceType,
+      options: resolverOptions,
+      hasEmbeddedResource: _hasEmbeddedResource(path),
+      resolveEmbedded: () => _resolveEmbeddedResource(path),
+      fetchResource: () => _fetchResource(path),
+      resolveDefault,
+    });
+
+    return resolved === undefined ? resolveDefault() : resolved.value;
+  };
 
   type GetResource = {
     <Path extends keyof typeof ${resourceToTypeMap}>(
@@ -103,23 +253,28 @@ const getPreamble = (embed: EmbedPreambleOptions) => dedent`
     path: string,
     resourceTypeOrOptions?: string | GetResourceOptions,
     maybeOptions?: GetResourceOptions,
-  ) => {
+  ): Promise<any> => {
     const resourceType = typeof resourceTypeOrOptions === "string" ? resourceTypeOrOptions : undefined;
     const options = typeof resourceTypeOrOptions === "object" ? resourceTypeOrOptions : maybeOptions;
 
-    if (${resourceToTypeMap}[path] == null) {
+    const resource = ${resourceToTypeMap}[path as ResourcePath];
+    if (resource == null) {
       throw new Error(\`Unknown resource: \${JSON.stringify(path)}\`);
     }
 
-    const { name, schema } = ${resourceToTypeMap}[path];
+    const { name, schema } = resource;
     if (resourceType != null && name !== resourceType) {
       throw new Error(
         \`Unexpected resource type: expected \${JSON.stringify(resourceType)} but resource \${JSON.stringify(path)} has type \${JSON.stringify(name)}\`,
       );
     }
 
-    const data = ${getDataFetchExpr(embed)};
-    const parsedData = options?.skipValidation ? data : schema.parse(data);
+    const data = await _resolveResourceData({
+      path,
+      resourceType: name as ResourceTypeName,
+      options,
+    });
+    const parsedData = (options?.skipValidation ? data : schema.parse(data)) as object;
 
     if (options?.skipTransformer) {
       return parsedData;
@@ -203,45 +358,34 @@ const getPreamble = (embed: EmbedPreambleOptions) => dedent`
 export const generateResources = async (observer: Observer) => {
   const { write, allResourceTypes, config, outputDir } = getContext()!;
 
-  let transformerPath = config.resources.transformer?.importPath;
-  let transformerName = config.resources.transformer?.importName;
-  const transformerExtension = config.resources.transformer?.importExtension;
-  if (!transformerPath || !transformerName) {
-    transformerName = defaultResourceTransformerName;
-    transformerPath = "";
+  const transformerImport = resolveConfiguredImport(
+    config.resources.transformer,
+    outputDir,
+    config.configPath,
+  );
 
+  if (!transformerImport) {
     await write(defaultResourceTransformer);
   }
 
-  if (transformerPath) {
-    // Resolve path relative to config dir
-    const configDir = config.configPath
-      ? path.dirname(config.configPath)
-      : process.cwd();
-
-    transformerPath = path.resolve(configDir, transformerPath);
-
-    // Get relative path in relation to output dir
-    transformerPath = path.relative(outputDir, transformerPath);
-    if (
-      !transformerPath.startsWith("./") &&
-      !transformerPath.startsWith("../")
-    ) {
-      transformerPath = `./${transformerPath}`;
-    }
-
-    // Strip extension
-    const extension = path.extname(transformerPath);
-    transformerPath = transformerPath.slice(0, -extension.length);
-  }
-
-  if (transformerPath && transformerName) {
+  if (transformerImport) {
     await write(
-      `import { ${transformerName} as ${resourceTransformerName} } from ${JSON.stringify(`${transformerPath}${transformerExtension}`)};`,
+      `import { ${transformerImport.importName} as ${resourceTransformerName} } from ${JSON.stringify(transformerImport.importPath)};`,
     );
   } else {
     await write(
       `const ${resourceTransformerName} = ${defaultResourceTransformerName};`,
+    );
+  }
+
+  const resolverImport = resolveConfiguredImport(
+    config.resources.resolver,
+    outputDir,
+    config.configPath,
+  );
+  if (resolverImport) {
+    await write(
+      `import { ${resolverImport.importName} as ${configuredResourceResolverName} } from ${JSON.stringify(resolverImport.importPath)};`,
     );
   }
 
@@ -305,11 +449,16 @@ export const generateResources = async (observer: Observer) => {
   }
 
   const hasResourcesWithVars = embeddedPathsWithVars.size > 0;
-  await write(getPreamble({
-    enabled: hasEmbeddedResources,
-    resolveVariables: config.resources.embed.resolveVariables,
-    hasResourcesWithVars,
-  }));
+  await write(
+    getPreamble({
+      embed: {
+        enabled: hasEmbeddedResources,
+        resolveVariables: config.resources.embed.resolveVariables,
+        hasResourcesWithVars,
+      },
+      hasConfiguredResourceResolver: resolverImport != null,
+    }),
+  );
 
   observer.next("Generating schemas...");
 
@@ -455,3 +604,9 @@ const makeReferencesSchema = (resourceType: string, paths: string[]) => {
 
 const resourceTypeToTSTypeName = (resourceTypeName: string) =>
   toValidIdentifier(capitalize(camelCase(resourceTypeName)));
+
+export const __testing = {
+  getEmbeddedResolverCode,
+  getPreamble,
+  resolveConfiguredImport,
+};

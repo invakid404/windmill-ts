@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-const TransformerSchema = z
+const ImportHookSchema = z
   .object({
-    // Import path for the transformer, relative to the config
+    // Import path for the hook, relative to the config
     importPath: z.string(),
-    // Name of the exported transformer
+    // Name of the exported hook
     importName: z.string(),
     // Extension to append to the import, if necessary (e.g., '.js' or '.ts')
     importExtension: z.string().default(""),
@@ -24,13 +24,15 @@ const ResourceOptionsSchema = z
   .object({
     // Map from resource type to default resource path
     defaults: z.record(z.string(), z.string().nullable()).default({}),
-    transformer: TransformerSchema,
+    transformer: ImportHookSchema,
     individualResourceTypeExports: z.boolean().default(false),
     // When true, resource type schemas will use z.looseObject() instead of z.object()
     // to allow passthrough of unknown fields
     looseSchemas: z.boolean().default(false),
     // Embed resource values directly in the generated client
     embed: EmbedSchema,
+    // Optional resolver hook consulted before embedded/backend resource fetches
+    resolver: ImportHookSchema,
   })
   .prefault({});
 
