@@ -1,13 +1,25 @@
 import { z } from "zod";
 
-const TransformerSchema = z
+const ImportNameSchema = z
+  .string()
+  .regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/, "Must be a valid JavaScript identifier");
+
+const ImportExtensionSchema = z
+  .string()
+  .regex(
+    /^(?:|\.[A-Za-z0-9]+)$/,
+    "Must be empty or a dot-prefixed extension",
+  )
+  .default("");
+
+const ImportHookSchema = z
   .object({
-    // Import path for the transformer, relative to the config
-    importPath: z.string(),
-    // Name of the exported transformer
-    importName: z.string(),
+    // Import path for the hook, relative to the config
+    importPath: z.string().min(1),
+    // Name of the exported hook
+    importName: ImportNameSchema,
     // Extension to append to the import, if necessary (e.g., '.js' or '.ts')
-    importExtension: z.string().default(""),
+    importExtension: ImportExtensionSchema,
   })
   .nullish();
 
@@ -24,13 +36,15 @@ const ResourceOptionsSchema = z
   .object({
     // Map from resource type to default resource path
     defaults: z.record(z.string(), z.string().nullable()).default({}),
-    transformer: TransformerSchema,
+    transformer: ImportHookSchema,
     individualResourceTypeExports: z.boolean().default(false),
     // When true, resource type schemas will use z.looseObject() instead of z.object()
     // to allow passthrough of unknown fields
     looseSchemas: z.boolean().default(false),
     // Embed resource values directly in the generated client
     embed: EmbedSchema,
+    // Optional resolver hook consulted before embedded/backend resource fetches
+    resolver: ImportHookSchema,
   })
   .prefault({});
 

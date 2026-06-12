@@ -19,14 +19,18 @@ export async function* listFlows(concurrency?: number) {
       break;
     }
 
-    const promises = pageData.map(({ path }) =>
-      queue.add(() =>
+    const promises = pageData.map(async ({ path }) => {
+      const flow = await queue.add(() =>
         wmill.FlowService.getFlowByPath({
           workspace,
           path,
         }),
-      ),
-    );
+      );
+      if (flow == null) {
+        throw new Error(`Flow ${JSON.stringify(path)} returned no data`);
+      }
+      return flow;
+    });
 
     yield* promises;
   }
