@@ -1,5 +1,5 @@
 import toValidIdentifier from "to-valid-identifier";
-import { listResources, getResourceValue } from "../windmill/resources.js";
+import { getResourceValue } from "../windmill/resources.js";
 import type { JSONSchema } from "./types.js";
 import { getContext } from "./context.js";
 import { schemaToZod } from "./common.js";
@@ -361,7 +361,9 @@ const getPreamble = ({
 `;
 
 export const generateResources = async (observer: Observer) => {
-  const { write, allResourceTypes, config, outputDir } = getContext()!;
+  const { write, resourceTypes, workspaceResources, config, outputDir } =
+    getContext()!;
+  const { resourcesByType, pathToResourceType } = workspaceResources;
 
   const transformerImport = resolveConfiguredImport(
     config.resources.transformer,
@@ -394,23 +396,6 @@ export const generateResources = async (observer: Observer) => {
     );
   }
 
-  observer.next("Fetching all resources...");
-  const resourcesByType = new Map<string, string[]>();
-  const allWorkspacePaths = new Map<string, string>();
-  for await (const {
-    resource_type: resourceTypeName,
-    path,
-  } of listResources()) {
-    allWorkspacePaths.set(path, resourceTypeName);
-
-    if (!(resourceTypeName in allResourceTypes)) {
-      continue;
-    }
-
-    const paths = resourcesByType.get(resourceTypeName) ?? [];
-    resourcesByType.set(resourceTypeName, [...paths, path]);
-  }
-
   const hasEmbeddedResources = config.resources.embed.paths.length > 0;
   const embeddedValues = new Map<string, unknown>();
   const embeddedPathsWithVars = new Set<string>();
@@ -424,7 +409,7 @@ export const generateResources = async (observer: Observer) => {
 
     for (const embedPath of config.resources.embed.paths) {
       if (!allKnownPaths.has(embedPath)) {
-        const resourceType = allWorkspacePaths.get(embedPath);
+        const resourceType = pathToResourceType.get(embedPath);
         if (resourceType != null) {
           throw new Error(
             `Embedded resource ${JSON.stringify(embedPath)} has unsupported resource type ${JSON.stringify(resourceType)}`,
@@ -470,7 +455,7 @@ export const generateResources = async (observer: Observer) => {
   const defaultPerResourceType = new Map<string, string>();
 
   for (const [resourceTypeName, paths] of resourcesByType) {
-    const resourceType = allResourceTypes[resourceTypeName]!;
+    const resourceType = resourceTypes[resourceTypeName]!;
 
     const typeSchemaName = resourceTypeSchemaName(resourceType.name);
     const resourceTypeSchema = schemaToZod(resourceType.schema as never, {
