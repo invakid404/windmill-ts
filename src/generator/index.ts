@@ -2,7 +2,11 @@ import { Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { writePreamble } from "./preamble.js";
 import { run } from "./context.js";
-import { listResourceTypes } from "../windmill/resourceTypes.js";
+import {
+  listResourceTypes,
+  type ResourceTypes,
+} from "../windmill/resourceTypes.js";
+import { collectWorkspaceResources } from "../windmill/resources.js";
 import { generateScripts } from "./scripts.js";
 import { generateResources } from "./resources.js";
 import { generateFlows } from "./flows.js";
@@ -46,8 +50,23 @@ export const generate = async (
   const config = await getConfig();
 
   const allResourceTypes = await listResourceTypes();
+  const workspaceResources = await collectWorkspaceResources(allResourceTypes);
 
-  return run(output, outputDir, allResourceTypes, async () => {
+  // NOTE: schemas are only emitted for resource types that have at least one
+  //       resource in the workspace, so those are the only ones the generated
+  //       code can refer to. Narrowing the set here (instead of passing every
+  //       resource type known to the instance) keeps what we generate and what
+  //       we reference in sync, and makes anything else fall back to `z.any()`
+  const resourceTypes: ResourceTypes = new Map(
+    [...workspaceResources.resourcesByType.keys()].map((resourceTypeName) => [
+      resourceTypeName,
+      allResourceTypes.get(resourceTypeName)!,
+    ]),
+  );
+
+  const shared = { outputDir, resourceTypes, workspaceResources };
+
+  return run(output, shared, async () => {
     await writePreamble();
 
     const results = (

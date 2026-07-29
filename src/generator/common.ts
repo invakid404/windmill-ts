@@ -13,14 +13,18 @@ import type { Observer } from "./index.js";
 import { fixupZodSchema } from "../utils/fixupZodSchema.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
-  const { allResourceTypes, outputDir } = getContext()!;
+  const { outputDir, resourceTypes, workspaceResources } = getContext()!;
 
   const buffer = new PassThrough({
     // The default limit appears to cause writes to start failing when too
     // many resources of a given type exist; this should be high enough
     highWaterMark: 1024 * 1024,
   });
-  const result = await run(buffer, outputDir, allResourceTypes, cb);
+  const result = await run(
+    buffer,
+    { outputDir, resourceTypes, workspaceResources },
+    cb,
+  );
 
   return { buffer, result };
 };
@@ -89,7 +93,7 @@ export const schemaToZod = (
     resourceTypeToSchema = resourceTypeToUnion,
     looseTopLevelObject = false,
   } = options ?? {};
-  const { allResourceTypes } = getContext()!;
+  const { resourceTypes } = getContext()!;
 
   let result = jsonSchemaToZod(schema, {
     parserOverride: (schema, _refs) => {
@@ -164,7 +168,14 @@ export const schemaToZod = (
         //       argument types by parsing the script sources (for TS only),
         //       but handling things like types imported from elsewhere would
         //       not be easy
-        if (!(resourceType in allResourceTypes)) {
+        //
+        //       `resourceTypes` only contains resource types that have at least
+        //       one resource in the workspace, which are the only ones we emit
+        //       schemas for; referring to any other one would produce code that
+        //       doesn't compile. This is also what keeps common argument types
+        //       that happen to collide with a resource type name (such as
+        //       `Record`, which Windmill added to their hub) working
+        if (!resourceTypes.has(resourceType)) {
           return "z.any()";
         }
 

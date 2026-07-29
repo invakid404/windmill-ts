@@ -2,22 +2,33 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { PassThrough, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { ResourceTypes } from "../windmill/resourceTypes.js";
+import type { WorkspaceResources } from "../windmill/resources.js";
 import { getConfig, type Config } from "../config/index.js";
 
-type GenerateContext = {
+/**
+ * Everything the generator tasks share, apart from the output stream they
+ * write to.
+ */
+export type SharedContext = {
+  outputDir: string;
+  // NOTE: only contains resource types that have at least one resource in the
+  //       workspace, as those are the only ones we emit schemas for; anything
+  //       else has to fall back to `z.any()` (see `schemaToZod`)
+  resourceTypes: ResourceTypes;
+  workspaceResources: WorkspaceResources;
+};
+
+type GenerateContext = SharedContext & {
   write: (content: string) => Promise<void>;
   deferWrite: (content: string) => void;
-  allResourceTypes: ResourceTypes;
   config: Config;
-  outputDir: string;
 };
 
 const generateStore = new AsyncLocalStorage<GenerateContext>();
 
 export const run = async <T,>(
   output: Writable,
-  outputDir: string,
-  allResourceTypes: ResourceTypes,
+  shared: SharedContext,
   cb: () => T,
 ) => {
   const write = (content: string, stream = output) =>
@@ -46,11 +57,10 @@ export const run = async <T,>(
 
   const result = await generateStore.run(
     {
+      ...shared,
       write,
       deferWrite,
-      allResourceTypes,
       config: await getConfig(),
-      outputDir,
     },
     cb,
   );
