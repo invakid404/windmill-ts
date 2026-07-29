@@ -455,7 +455,7 @@ export const generateResources = async (observer: Observer) => {
   const defaultPerResourceType = new Map<string, string>();
 
   for (const [resourceTypeName, paths] of resourcesByType) {
-    const resourceType = resourceTypes[resourceTypeName]!;
+    const resourceType = resourceTypes.get(resourceTypeName)!;
 
     const typeSchemaName = resourceTypeSchemaName(resourceType.name);
     const resourceTypeSchema = schemaToZod(resourceType.schema as never, {

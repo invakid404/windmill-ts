@@ -175,7 +175,7 @@ export const schemaToZod = (
         //       doesn't compile. This is also what keeps common argument types
         //       that happen to collide with a resource type name (such as
         //       `Record`, which Windmill added to their hub) working
-        if (!(resourceType in resourceTypes)) {
+        if (!resourceTypes.has(resourceType)) {
           return "z.any()";
         }
 

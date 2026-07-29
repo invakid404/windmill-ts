@@ -17,7 +17,7 @@ const withResources = (resourcesByType, cb) => {
   const output = new PassThrough();
   output.resume();
 
-  const resourceTypes = Object.fromEntries(
+  const resourceTypes = new Map(
     [...resourcesByType.keys()].map((name) => [
       name,
       { name, schema: { type: "object", properties: {} } },
@@ -43,6 +43,16 @@ test("resource types without any resources fall back to z.any()", async () => {
   assert.match(result, /"arg": z\.any\(\)/);
   assert.equal(result.includes("record_type"), false);
   assert.equal(result.includes("record_references"), false);
+});
+
+test("resource type names colliding with Object.prototype fall back too", async () => {
+  for (const resourceType of ["constructor", "toString"]) {
+    const result = await withResources(new Map(), () =>
+      schemaToZod(argsSchema(resourceType)),
+    );
+
+    assert.match(result, /"arg": z\.any\(\)/);
+  }
 });
 
 test("resource types with resources keep referring to their schemas", async () => {

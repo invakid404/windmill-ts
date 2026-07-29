@@ -54,12 +54,16 @@ export const collectWorkspaceResources = async (
   } of listResources()) {
     pathToResourceType.set(path, resourceTypeName);
 
-    if (!(resourceTypeName in resourceTypes)) {
+    if (!resourceTypes.has(resourceTypeName)) {
       continue;
     }
 
-    const paths = resourcesByType.get(resourceTypeName) ?? [];
-    resourcesByType.set(resourceTypeName, [...paths, path]);
+    const paths = resourcesByType.get(resourceTypeName);
+    if (paths == null) {
+      resourcesByType.set(resourceTypeName, [path]);
+    } else {
+      paths.push(path);
+    }
   }
 
   return { resourcesByType, pathToResourceType };

@@ -57,10 +57,10 @@ export const generate = async (
   //       code can refer to. Narrowing the set here (instead of passing every
   //       resource type known to the instance) keeps what we generate and what
   //       we reference in sync, and makes anything else fall back to `z.any()`
-  const resourceTypes: ResourceTypes = Object.fromEntries(
+  const resourceTypes: ResourceTypes = new Map(
     [...workspaceResources.resourcesByType.keys()].map((resourceTypeName) => [
       resourceTypeName,
-      allResourceTypes[resourceTypeName]!,
+      allResourceTypes.get(resourceTypeName)!,
     ]),
   );
 
