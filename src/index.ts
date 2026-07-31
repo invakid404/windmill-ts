@@ -114,7 +114,7 @@ program
       const workspace = await getWorkspace(workspaceName);
       if (workspace == null) {
         throw new Error(
-          `Workspace with name ${workspace} not found in Windmill CLI config`,
+          `Workspace with name "${workspaceName}" not found in Windmill CLI config`,
         );
       }
 
