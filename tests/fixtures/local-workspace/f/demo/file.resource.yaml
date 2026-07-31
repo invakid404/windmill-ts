@@ -1,0 +1,4 @@
+description: ""
+resource_type: file
+value:
+  content: "!inline f/demo/file.resource.file.txt"

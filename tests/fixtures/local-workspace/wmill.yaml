@@ -1,0 +1,4 @@
+defaultTs: bun
+includes:
+  - "**"
+excludes: []

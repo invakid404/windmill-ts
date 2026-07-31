@@ -1,0 +1,7 @@
+description: ""
+resource_type: redis
+value:
+  host: localhost
+  port: 6379
+  password: "$var:f/demo/redis_password"
+  windmill_content_hash__: "hash-abc-123"
