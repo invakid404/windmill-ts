@@ -1,5 +1,4 @@
 import dedent from "dedent";
-import { listScripts } from "../windmill/scripts.js";
 import { getContext } from "./context.js";
 import { generateSchemas } from "./common.js";
 import type { Observer } from "./index.js";
@@ -80,12 +79,12 @@ const preamble = dedent`
 `;
 
 export const generateScripts = async (observer: Observer) => {
-  const { write, config } = getContext()!;
+  const { write, config, source } = getContext()!;
 
   await write(preamble);
 
   return generateSchemas({
-    generator: listScripts(),
+    generator: source.listScripts(),
     mapName,
     observer,
     looseArgs: config.scripts.looseArgs,

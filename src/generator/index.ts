@@ -2,11 +2,9 @@ import { Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { writePreamble } from "./preamble.js";
 import { run } from "./context.js";
-import {
-  listResourceTypes,
-  type ResourceTypes,
-} from "../windmill/resourceTypes.js";
-import { collectWorkspaceResources } from "../windmill/resources.js";
+import type { GenerationSource, ResourceTypes } from "../source/types.js";
+import { collectWorkspaceResources } from "../source/resources.js";
+import { remoteSource } from "../source/remote.js";
 import { generateScripts } from "./scripts.js";
 import { generateResources } from "./resources.js";
 import { generateFlows } from "./flows.js";
@@ -18,6 +16,8 @@ export type { Observer };
 
 export type GenerateOptions = {
   spinners?: boolean;
+  /** The data source to generate from. Defaults to the remote HTTP provider. */
+  source?: GenerationSource;
 };
 
 type Task = {
@@ -45,12 +45,15 @@ export const generate = async (
   outputDir: string,
   options?: GenerateOptions,
 ) => {
-  const { spinners = false } = options ?? {};
+  const { spinners = false, source = remoteSource } = options ?? {};
 
   const config = await getConfig();
 
-  const allResourceTypes = await listResourceTypes();
-  const workspaceResources = await collectWorkspaceResources(allResourceTypes);
+  const allResourceTypes = await source.listResourceTypes();
+  const workspaceResources = await collectWorkspaceResources(
+    source,
+    allResourceTypes,
+  );
 
   // NOTE: schemas are only emitted for resource types that have at least one
   //       resource in the workspace, so those are the only ones the generated
@@ -64,7 +67,7 @@ export const generate = async (
     ]),
   );
 
-  const shared = { outputDir, resourceTypes, workspaceResources };
+  const shared = { outputDir, resourceTypes, workspaceResources, source };
 
   return run(output, shared, async () => {
     await writePreamble();

@@ -13,6 +13,19 @@ const argsSchema = (resourceType) => ({
   required: ["arg"],
 });
 
+const fakeSource = {
+  kind: "local",
+  async listResourceTypes() {
+    return new Map();
+  },
+  async *listResources() {},
+  async getResourceValue() {
+    return undefined;
+  },
+  async *listScripts() {},
+  async *listFlows() {},
+};
+
 const withResources = (resourcesByType, cb) => {
   const output = new PassThrough();
   output.resume();
@@ -30,6 +43,7 @@ const withResources = (resourcesByType, cb) => {
       outputDir: process.cwd(),
       resourceTypes,
       workspaceResources: { resourcesByType, pathToResourceType: new Map() },
+      source: fakeSource,
     },
     cb,
   );

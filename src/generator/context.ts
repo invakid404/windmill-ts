@@ -1,8 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { PassThrough, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { ResourceTypes } from "../windmill/resourceTypes.js";
-import type { WorkspaceResources } from "../windmill/resources.js";
+import type {
+  GenerationSource,
+  ResourceTypes,
+  WorkspaceResources,
+} from "../source/types.js";
 import { getConfig, type Config } from "../config/index.js";
 
 /**
@@ -16,6 +19,9 @@ export type SharedContext = {
   //       else has to fall back to `z.any()` (see `schemaToZod`)
   resourceTypes: ResourceTypes;
   workspaceResources: WorkspaceResources;
+  // The data source generation metadata is read from (remote HTTP or a local
+  // wmill-synced folder). Injected here so tasks never reach for a global.
+  source: GenerationSource;
 };
 
 type GenerateContext = SharedContext & {
