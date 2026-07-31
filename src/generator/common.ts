@@ -13,7 +13,8 @@ import type { Observer } from "./index.js";
 import { fixupZodSchema } from "../utils/fixupZodSchema.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
-  const { outputDir, resourceTypes, workspaceResources } = getContext()!;
+  const { outputDir, resourceTypes, workspaceResources, source } =
+    getContext()!;
 
   const buffer = new PassThrough({
     // The default limit appears to cause writes to start failing when too
@@ -22,7 +23,7 @@ export const runWithBuffer = async <T,>(cb: () => T) => {
   });
   const result = await run(
     buffer,
-    { outputDir, resourceTypes, workspaceResources },
+    { outputDir, resourceTypes, workspaceResources, source },
     cb,
   );
 

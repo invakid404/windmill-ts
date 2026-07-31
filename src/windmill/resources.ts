@@ -1,5 +1,5 @@
 import * as wmill from "windmill-client";
-import type { ResourceTypes } from "./resourceTypes.js";
+import type { SourceResource } from "../source/types.js";
 
 const PER_PAGE = 20;
 
@@ -12,7 +12,9 @@ export async function getResourceValue(path: string): Promise<unknown> {
   return wmill.ResourceService.getResourceValue({ workspace, path });
 }
 
-export async function* listResources(resourceType?: string) {
+export async function* listResources(
+  resourceType?: string,
+): AsyncGenerator<SourceResource> {
   const workspace = process.env["WM_WORKSPACE"]!;
 
   for (let page = 1; ; ++page) {
@@ -28,43 +30,8 @@ export async function* listResources(resourceType?: string) {
       break;
     }
 
-    yield* pageData;
+    for (const { path, resource_type } of pageData) {
+      yield { path, resource_type };
+    }
   }
 }
-
-export type WorkspaceResources = {
-  /**
-   * Paths of all resources in the workspace with a known resource type,
-   * grouped by resource type.
-   */
-  resourcesByType: Map<string, string[]>;
-  /** The resource type of every resource in the workspace, keyed by path. */
-  pathToResourceType: Map<string, string>;
-};
-
-export const collectWorkspaceResources = async (
-  resourceTypes: ResourceTypes,
-): Promise<WorkspaceResources> => {
-  const resourcesByType = new Map<string, string[]>();
-  const pathToResourceType = new Map<string, string>();
-
-  for await (const {
-    resource_type: resourceTypeName,
-    path,
-  } of listResources()) {
-    pathToResourceType.set(path, resourceTypeName);
-
-    if (!resourceTypes.has(resourceTypeName)) {
-      continue;
-    }
-
-    const paths = resourcesByType.get(resourceTypeName);
-    if (paths == null) {
-      resourcesByType.set(resourceTypeName, [path]);
-    } else {
-      paths.push(path);
-    }
-  }
-
-  return { resourcesByType, pathToResourceType };
-};

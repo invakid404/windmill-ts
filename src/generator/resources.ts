@@ -1,5 +1,4 @@
 import toValidIdentifier from "to-valid-identifier";
-import { getResourceValue } from "../windmill/resources.js";
 import type { JSONSchema } from "./types.js";
 import { getContext } from "./context.js";
 import { schemaToZod } from "./common.js";
@@ -361,7 +360,7 @@ const getPreamble = ({
 `;
 
 export const generateResources = async (observer: Observer) => {
-  const { write, resourceTypes, workspaceResources, config, outputDir } =
+  const { write, resourceTypes, workspaceResources, config, outputDir, source } =
     getContext()!;
   const { resourcesByType, pathToResourceType } = workspaceResources;
 
@@ -424,7 +423,7 @@ export const generateResources = async (observer: Observer) => {
     for (const embedPath of config.resources.embed.paths) {
       let value: unknown;
       try {
-        value = await getResourceValue(embedPath);
+        value = await source.getResourceValue(embedPath);
       } catch (err) {
         throw new Error(
           `Failed to fetch embedded resource ${JSON.stringify(embedPath)}: ${err instanceof Error ? err.message : err}`,

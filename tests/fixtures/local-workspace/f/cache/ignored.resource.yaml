@@ -1,0 +1,4 @@
+description: ""
+resource_type: cache
+value:
+  cached: true

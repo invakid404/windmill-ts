@@ -1,0 +1,11 @@
+description: "A file resource type"
+format_extension: txt
+is_fileset: false
+schema:
+  $schema: https://json-schema.org/draft/2020-12/schema
+  type: object
+  properties:
+    content:
+      type: string
+  required:
+    - content

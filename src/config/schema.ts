@@ -72,11 +72,43 @@ const FetchRetryOptionsSchema = z
   })
   .prefault({});
 
+const HubOptionsSchema = z
+  .object({
+    // online: refresh from the public Hub when local/catalog inputs are
+    // incomplete; offline: never contact the Hub.
+    mode: z.enum(["online", "offline"]).default("online"),
+  })
+  .prefault({});
+
+const SourceResourceTypesSchema = z
+  .object({
+    // Optional supplemental catalog of ResourceType-like objects, resolved
+    // relative to the config file.
+    file: z.string().min(1).optional(),
+    hub: HubOptionsSchema,
+  })
+  .prefault({});
+
+// Optional local-source block. When present (or --from-folder is passed),
+// generation reads metadata from a wmill sync tree instead of a live workspace.
+const SourceSchema = z
+  .object({
+    // Path to the wmill sync root, resolved relative to the config file.
+    folder: z.string().min(1).optional(),
+    // Honor wmill.yaml includes/excludes/skip* (default true).
+    respectWmillYaml: z.boolean().default(true),
+    // Override the disposable cache directory, resolved relative to the config.
+    cacheDir: z.string().min(1).optional(),
+    resourceTypes: SourceResourceTypesSchema,
+  })
+  .optional();
+
 export const ConfigSchema = z
   .object({
     resources: ResourceOptionsSchema,
     scripts: ScriptOptionsSchema,
     flows: FlowOptionsSchema,
     fetchRetry: FetchRetryOptionsSchema,
+    source: SourceSchema,
   })
   .prefault({});

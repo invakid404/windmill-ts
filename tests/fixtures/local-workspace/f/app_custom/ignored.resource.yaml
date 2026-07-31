@@ -1,0 +1,4 @@
+description: ""
+resource_type: app_custom
+value:
+  markup: "<div>ignored</div>"
