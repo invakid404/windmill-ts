@@ -2,6 +2,7 @@ import { readFile, realpath } from "node:fs/promises";
 import * as nodePath from "node:path";
 import type { MetadataFormat } from "./parsing.js";
 import { parseByFormat, parseResourceMetadata } from "./parsing.js";
+import { escapesRoot } from "./discovery.js";
 
 export type ResourceEntry = {
   /** Logical resource path. */
@@ -16,10 +17,12 @@ export type ResourceEntry = {
 const INLINE_PREFIX = "!inline ";
 
 /**
- * Resolve an `!inline ` sibling-file pointer to a path contained beneath the
- * source root. Rejects absolute targets, lexical `..` escape, and (via realpath)
- * symlinks that escape the root. Mirrors the CLI's `/`→platform separator
- * normalization while adding containment safety the CLI does not perform.
+ * Resolve an `!inline ` source-root-relative file pointer to a path contained
+ * beneath the source root (the token is resolved against `realRoot`, not the
+ * resource file's directory). Rejects absolute targets, lexical `..` escape, and
+ * (via realpath) symlinks that escape the root. Mirrors the CLI's `/`→platform
+ * separator normalization while adding containment safety the CLI does not
+ * perform.
  */
 const resolveContainedTarget = async (
   target: string,
@@ -36,7 +39,7 @@ const resolveContainedTarget = async (
 
   const abs = nodePath.resolve(realRoot, normalized);
   const lexicalRel = nodePath.relative(realRoot, abs);
-  if (lexicalRel.startsWith("..") || nodePath.isAbsolute(lexicalRel)) {
+  if (escapesRoot(lexicalRel)) {
     throw new Error(
       `Inline file target ${JSON.stringify(target)} in resource ${relPath} escapes the source root`,
     );
@@ -53,7 +56,7 @@ const resolveContainedTarget = async (
   }
 
   const realRel = nodePath.relative(realRoot, real);
-  if (realRel === "" || realRel.startsWith("..") || nodePath.isAbsolute(realRel)) {
+  if (escapesRoot(realRel)) {
     throw new Error(
       `Inline file target ${JSON.stringify(target)} in resource ${relPath} escapes the source root`,
     );
@@ -65,9 +68,9 @@ const resolveContainedTarget = async (
 /**
  * If the resource is a file resource (its type has a non-empty `format_extension`)
  * whose `value.content` is a string beginning with `!inline `, substitute the
- * referenced sibling file's UTF-8 text for the pointer. Otherwise the value is
- * returned untouched — `$var:`/`$res:` strings and ordinary literals are never
- * interpreted here.
+ * referenced source-root-relative file's UTF-8 text for the pointer. Otherwise
+ * the value is returned untouched — `$var:`/`$res:` strings and ordinary
+ * literals are never interpreted here.
  */
 const resolveInlineContent = async (
   value: unknown,

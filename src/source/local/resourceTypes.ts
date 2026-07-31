@@ -6,6 +6,7 @@ import chalk from "chalk";
 import type { JSONSchema } from "../../generator/types.js";
 import type { ResourceTypes, SourceResourceType } from "../types.js";
 import { compareStrings } from "../resources.js";
+import { describeParseLocation } from "./parsing.js";
 import {
   defaultCacheDirDeps,
   resolveCacheDir,
@@ -58,6 +59,18 @@ const logDiagnostic = (message: string): void => {
   console.error(message);
 };
 
+/** A value-safe description of why an offline cache could not be used. */
+const describeCacheState = (
+  cacheState: CacheReadResult,
+  dir: string | null,
+): string => {
+  const location = dir ?? "(no writable cache location)";
+  if (cacheState.status === "invalid") {
+    return `cache at ${location} is invalid: ${cacheState.reason}`;
+  }
+  return `no cache present at ${location}`;
+};
+
 /** Load the optional supplemental catalog file (JSON or YAML). */
 const loadCatalog = async (
   file: string,
@@ -75,8 +88,11 @@ const loadCatalog = async (
   try {
     raw = ext === ".yaml" || ext === ".yml" ? parseYaml(content) : JSON.parse(content);
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to parse resource-types catalog ${file}: ${reason}`);
+    // Never interpolate the raw parser message: a YAML/JSON catalog can embed
+    // secret-bearing schemas, so surface only a content-free location.
+    throw new Error(
+      `Failed to parse resource-types catalog ${file}${describeParseLocation(err)}`,
+    );
   }
 
   const parsed = CatalogSchema.safeParse(raw);
@@ -95,18 +111,22 @@ const loadCatalog = async (
         `Resource-types catalog ${file} contains duplicate name ${JSON.stringify(record.name)}`,
       );
     }
-    let schema: JSONSchema | undefined;
-    if (record.schema != null) {
-      if (typeof record.schema !== "object" || Array.isArray(record.schema)) {
-        throw new Error(
-          `Invalid schema for ${JSON.stringify(record.name)} in resource-types catalog ${file}: expected a JSON Schema object`,
-        );
-      }
-      schema = record.schema as JSONSchema;
+    // Every explicit catalog record must carry an object-valued schema (parity
+    // with local `*.resource-type.*` definitions); a partial overlay is not a
+    // supported v1 merge semantic.
+    if (record.schema == null) {
+      throw new Error(
+        `Missing schema for ${JSON.stringify(record.name)} in resource-types catalog ${file}: a resource type must define an object schema`,
+      );
+    }
+    if (typeof record.schema !== "object" || Array.isArray(record.schema)) {
+      throw new Error(
+        `Invalid schema for ${JSON.stringify(record.name)} in resource-types catalog ${file}: expected a JSON Schema object`,
+      );
     }
     map.set(record.name, {
       name: record.name,
-      schema,
+      schema: record.schema as JSONSchema,
       description:
         typeof record.description === "string" ? record.description : undefined,
       format_extension: record.format_extension ?? null,
@@ -140,6 +160,16 @@ const mergeLayers = (
   }
   return merged;
 };
+
+/**
+ * Normalize the composed map to ascending name order so `listResourceTypes()`
+ * satisfies the D9 sorted-provider contract regardless of catalog/local/Hub
+ * insertion order.
+ */
+const sortByName = (
+  map: Map<string, SourceResourceType>,
+): ResourceTypes =>
+  new Map([...map.entries()].sort(([a], [b]) => compareStrings(a, b)));
 
 const computeMissing = (
   usedNames: Set<string>,
@@ -195,7 +225,7 @@ export const composeResourceTypes = async (
 
   // Complete without the Hub — no cache dependence and no network at all.
   if (missing.length === 0) {
-    return localAndCatalog;
+    return sortByName(localAndCatalog);
   }
 
   const resolution = resolveCacheDir(
@@ -231,10 +261,10 @@ export const composeResourceTypes = async (
         stillMissing,
         cacheState.status === "ok"
           ? `Offline mode: cached Hub catalog (${shortHash(cacheState.hash)}, captured ${cacheState.cache.capturedAt}) does not define them. Provide them via a committed source.resourceTypes.file catalog.`
-          : `Offline mode: no usable Hub cache available. Provide them via a committed source.resourceTypes.file catalog or run online once.`,
+          : `Offline mode: no usable Hub cache available (${describeCacheState(cacheState, resolution.dir)}). Provide them via a committed source.resourceTypes.file catalog or run online once.`,
       );
     }
-    return merged;
+    return sortByName(merged);
   }
 
   // Online mode: attempt one full-list refresh.
@@ -275,6 +305,8 @@ export const composeResourceTypes = async (
         resolution.dir,
         fetched.types,
         capturedAt,
+        // The shared temp fallback root must be created private (0700).
+        resolution.kind === "temp" ? 0o700 : undefined,
       );
       if (writeResult.written) {
         if (writeResult.previousHash != null) {
@@ -324,5 +356,5 @@ export const composeResourceTypes = async (
     );
   }
 
-  return merged;
+  return sortByName(merged);
 };

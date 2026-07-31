@@ -46,6 +46,19 @@ export const normalizeHubResponse = (json: unknown): HubNormalizeResult => {
     );
   }
 
+  // Reject duplicate names on the RAW records, before schema validity is even
+  // considered: a catalog that names the same type twice is untrustworthy
+  // regardless of which copy happens to carry a usable schema.
+  const seen = new Set<string>();
+  for (const record of parsed.data) {
+    if (seen.has(record.name)) {
+      throw new Error(
+        `Hub response contains duplicate resource type name ${JSON.stringify(record.name)}`,
+      );
+    }
+    seen.add(record.name);
+  }
+
   const types: HubResourceType[] = [];
   const omitted: string[] = [];
 
@@ -71,16 +84,6 @@ export const normalizeHubResponse = (json: unknown): HubNormalizeResult => {
       description: record.description ?? undefined,
       app: record.app ?? undefined,
     });
-  }
-
-  const seen = new Set<string>();
-  for (const type of types) {
-    if (seen.has(type.name)) {
-      throw new Error(
-        `Hub response contains duplicate resource type name ${JSON.stringify(type.name)}`,
-      );
-    }
-    seen.add(type.name);
   }
 
   types.sort((a, b) => compareStrings(a.name, b.name));
@@ -158,9 +161,17 @@ export const fetchHubResourceTypes = async (
           const retryAfter = parseRetryAfter(
             response.headers.get("retry-after"),
           );
+          const cappedExponential = Math.min(
+            maxTimeoutMs,
+            minTimeoutMs * 2 ** attempt,
+          );
+          // Honor a server-supplied Retry-After, but never let it exceed the
+          // configured maximum — a large seconds value or far-future date must
+          // not suspend generation for hours.
           const backoff =
-            retryAfter ??
-            Math.min(maxTimeoutMs, minTimeoutMs * 2 ** attempt);
+            retryAfter != null
+              ? Math.min(retryAfter, maxTimeoutMs)
+              : cappedExponential;
           attempt++;
           await sleep(backoff);
           continue;

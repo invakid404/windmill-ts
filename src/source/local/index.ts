@@ -17,7 +17,11 @@ import {
   parseResourceTypeMetadata,
   parseScriptMetadata,
 } from "./parsing.js";
-import { buildFilter, loadWmillConfig } from "./wmillConfig.js";
+import {
+  buildFilter,
+  loadWmillConfig,
+  type WmillConfig,
+} from "./wmillConfig.js";
 import { readResourceValue, type ResourceEntry } from "./resourceValues.js";
 import {
   composeResourceTypes,
@@ -39,6 +43,37 @@ export type CreateLocalSourceOptions = {
   verbose?: boolean;
   /** Injectable fetch for tests; undefined uses the default implementation. */
   fetchImpl?: typeof fetch;
+};
+
+// A small shared bound on concurrent metadata file reads keeps very large trees
+// (the reference tree has 1,039 scripts) from exhausting file descriptors or
+// spiking memory. Results are collected and re-sorted, so the bound never
+// affects deterministic output ordering.
+const METADATA_READ_CONCURRENCY = 64;
+
+type Limiter = <R>(task: () => Promise<R>) => Promise<R>;
+
+const createLimiter = (limit: number): Limiter => {
+  let active = 0;
+  const queue: (() => void)[] = [];
+  const pump = (): void => {
+    while (active < limit && queue.length > 0) {
+      active++;
+      queue.shift()!();
+    }
+  };
+  return <R>(task: () => Promise<R>): Promise<R> =>
+    new Promise<R>((resolve, reject) => {
+      queue.push(() => {
+        task()
+          .then(resolve, reject)
+          .finally(() => {
+            active--;
+            pump();
+          });
+      });
+      pump();
+    });
 };
 
 const cloneSchema = <T>(schema: T): T =>
@@ -78,17 +113,74 @@ const assertNoDuplicates = (
   }
 };
 
+/**
+ * Reject branch-specific resource variants (D8: defer + reject ambiguity).
+ *
+ * Windmill names a branch override such as `f/x.main.resource.yaml` for base
+ * `f/x.resource.yaml`; naively stripping `.resource.{yaml,json}` would emit a
+ * bogus `f/x.main` resource path. We do not select a branch, so any resource
+ * file whose logical path is branch-qualified — its trailing segment is a
+ * declared git branch, or it lives under a `specificItems.resources` base — is a
+ * hard error listing every relevant filename.
+ */
+const assertNoBranchSpecificResources = (
+  resourceFiles: DiscoveredFile[],
+  config: WmillConfig | null,
+): void => {
+  const branchNames = new Set(config?.gitBranchNames ?? []);
+  const specificResourcePaths = config?.specificResourcePaths ?? [];
+  if (branchNames.size === 0 && specificResourcePaths.length === 0) {
+    return;
+  }
+
+  const byLogical = new Map(
+    resourceFiles.map((file) => [file.logical, file] as const),
+  );
+  const relevant = new Set<string>();
+
+  for (const file of resourceFiles) {
+    const lastDot = file.logical.lastIndexOf(".");
+    if (lastDot < 0) {
+      continue;
+    }
+    const branchSuffix = file.logical.slice(lastDot + 1);
+    const base = file.logical.slice(0, lastDot);
+    const isBranchQualified =
+      branchNames.has(branchSuffix) ||
+      specificResourcePaths.some((path) => file.logical.startsWith(`${path}.`));
+    if (!isBranchQualified) {
+      continue;
+    }
+    relevant.add(file.relPath);
+    const baseFile = byLogical.get(base);
+    if (baseFile) {
+      relevant.add(baseFile.relPath);
+    }
+  }
+
+  if (relevant.size > 0) {
+    const names = [...relevant].sort(compareStrings);
+    throw new Error(
+      `Branch-specific resource metadata is not supported (windmill-ts does not select a git branch): ${names.join(", ")}. ` +
+        `Remove the branch-specific variants or generate from a single-branch checkout.`,
+    );
+  }
+};
+
 const parseSchemaItems = async (
   files: DiscoveredFile[],
   parse: (raw: unknown, relPath: string) => { schema?: SourceSchemaItem["schema"] },
+  limit: Limiter,
 ): Promise<SourceSchemaItem[]> => {
   const items = await Promise.all(
-    files.map(async (file): Promise<SourceSchemaItem> => {
-      const content = await readFile(file.absPath, "utf-8");
-      const raw = parseByFormat(content, file.format, file.relPath);
-      const { schema } = parse(raw, file.relPath);
-      return { path: file.logical, schema };
-    }),
+    files.map((file): Promise<SourceSchemaItem> =>
+      limit(async () => {
+        const content = await readFile(file.absPath, "utf-8");
+        const raw = parseByFormat(content, file.format, file.relPath);
+        const { schema } = parse(raw, file.relPath);
+        return { path: file.logical, schema };
+      }),
+    ),
   );
   items.sort((a, b) => compareStrings(a.path, b.path));
   return items;
@@ -163,37 +255,50 @@ export const createLocalSource = async (
     }
   }
 
+  assertNoBranchSpecificResources(resourceFiles, wmillConfig);
+
   assertNoDuplicates(scriptFiles, "script", "path");
   assertNoDuplicates(flowFiles, "flow", "path");
   assertNoDuplicates(resourceFiles, "resource", "path");
   assertNoDuplicates(resourceTypeFiles, "resource type", "name");
 
+  // Shared bound across all metadata reads for this crawl.
+  const readLimit = createLimiter(METADATA_READ_CONCURRENCY);
+
   const [scriptItems, flowItems] = await Promise.all([
-    parseSchemaItems(scriptFiles, parseScriptMetadata),
-    parseSchemaItems(flowFiles, parseFlowMetadata),
+    parseSchemaItems(scriptFiles, parseScriptMetadata, readLimit),
+    parseSchemaItems(flowFiles, parseFlowMetadata, readLimit),
   ]);
 
   const resourceEntries: ResourceEntry[] = await Promise.all(
-    resourceFiles.map(async (file): Promise<ResourceEntry> => {
-      const content = await readFile(file.absPath, "utf-8");
-      const raw = parseByFormat(content, file.format, file.relPath);
-      const { resource_type } = parseResourceMetadata(raw, file.relPath);
-      return {
-        path: file.logical,
-        resource_type,
-        absPath: file.absPath,
-        relPath: file.relPath,
-        format: file.format,
-      };
-    }),
+    resourceFiles.map((file): Promise<ResourceEntry> =>
+      readLimit(async () => {
+        const content = await readFile(file.absPath, "utf-8");
+        const raw = parseByFormat(content, file.format, file.relPath);
+        const { resource_type } = parseResourceMetadata(raw, file.relPath);
+        return {
+          path: file.logical,
+          resource_type,
+          absPath: file.absPath,
+          relPath: file.relPath,
+          format: file.format,
+        };
+      }),
+    ),
   );
   resourceEntries.sort((a, b) => compareStrings(a.path, b.path));
 
+  const localDefEntries = await Promise.all(
+    resourceTypeFiles.map((file): Promise<SourceResourceType> =>
+      readLimit(async () => {
+        const content = await readFile(file.absPath, "utf-8");
+        const raw = parseByFormat(content, file.format, file.relPath);
+        return parseResourceTypeMetadata(raw, file.relPath, file.logical);
+      }),
+    ),
+  );
   const localDefs = new Map<string, SourceResourceType>();
-  for (const file of resourceTypeFiles) {
-    const content = await readFile(file.absPath, "utf-8");
-    const raw = parseByFormat(content, file.format, file.relPath);
-    const def = parseResourceTypeMetadata(raw, file.relPath, file.logical);
+  for (const def of localDefEntries) {
     localDefs.set(def.name, def);
   }
 

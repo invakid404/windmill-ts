@@ -16,6 +16,7 @@ const makeDeps = (opts) => {
   const exists = new Set(opts.exists ?? []);
   const dirs = new Set(opts.dirs ?? opts.exists ?? []);
   const writable = new Set(opts.writable ?? []);
+  const privateDirs = new Set(opts.privateDirs ?? []);
   const pkg = new Set(opts.packageJson ?? []);
   const pkgWs = new Set(opts.packageJsonWorkspaces ?? []);
   const pnpm = new Set(opts.pnpmWorkspace ?? []);
@@ -38,6 +39,7 @@ const makeDeps = (opts) => {
         cur = parent;
       }
     },
+    isPrivateDir: (p) => privateDirs.has(p),
     hasPackageJson: (d) => pkg.has(d),
     hasPackageJsonWorkspaces: (d) => pkgWs.has(d),
     hasPnpmWorkspace: (d) => pnpm.has(d),
@@ -102,6 +104,20 @@ test("read-only node_modules is skipped for the OS cache", () => {
   assert.equal(res.kind, "os");
 });
 
+test("a node_modules with a blocked (non-directory) .cache is skipped (S4)", () => {
+  const deps = makeDeps({
+    cwd: "/proj",
+    exists: ["/proj", "/proj/node_modules", "/proj/node_modules/.cache", "/home/u/.cache"],
+    // .cache exists but is NOT a directory (a regular file blocks the target)
+    dirs: ["/proj", "/proj/node_modules", "/home/u/.cache"],
+    writable: ["/proj/node_modules", "/home/u/.cache"],
+    packageJson: ["/proj"],
+    gitDir: ["/proj"],
+  });
+  const res = resolveCacheDir({}, deps);
+  assert.equal(res.kind, "os");
+});
+
 test("global/npx invocation with no package uses the OS cache", () => {
   const deps = makeDeps({
     cwd: "/tmp/npx-1234",
@@ -119,8 +135,6 @@ test("XDG_CACHE_HOME, macOS, Windows, and Unix roots resolve as specified", () =
   const key = sha16("/proj");
   const common = {
     cwd: "/proj",
-    exists: ["/proj"],
-    dirs: ["/proj"],
     packageJson: ["/proj"],
   };
 
@@ -172,17 +186,82 @@ test("XDG_CACHE_HOME, macOS, Windows, and Unix roots resolve as specified", () =
   assert.equal(unix.dir, `/home/u/.cache/windmill-ts/${key}`);
 });
 
-test("an unwritable OS cache falls back to temp", () => {
+test("an unwritable OS cache falls back to a fresh temp root", () => {
   const deps = makeDeps({
     cwd: "/proj",
     exists: ["/proj", "/home/u", "/tmp"],
     dirs: ["/proj", "/home/u", "/tmp"],
-    writable: ["/tmp"], // home/.cache not writable
+    writable: ["/tmp"], // home/.cache not writable; temp root does not exist yet
     packageJson: ["/proj"],
   });
   const res = resolveCacheDir({}, deps);
   assert.equal(res.kind, "temp");
   assert.equal(res.dir, `/tmp/windmill-ts/${sha16("/proj")}`);
+});
+
+test("a private, current-user-owned pre-existing temp dir is reused (B3)", () => {
+  const key = sha16("/proj");
+  const tempDir = `/tmp/windmill-ts/${key}`;
+  const deps = makeDeps({
+    cwd: "/proj",
+    exists: ["/proj", "/tmp", "/tmp/windmill-ts", tempDir],
+    dirs: ["/proj", "/tmp", "/tmp/windmill-ts", tempDir],
+    writable: ["/tmp/windmill-ts", tempDir],
+    privateDirs: ["/tmp/windmill-ts", tempDir],
+    packageJson: ["/proj"],
+  });
+  const res = resolveCacheDir({}, deps);
+  assert.equal(res.kind, "temp");
+  assert.equal(res.dir, tempDir);
+});
+
+test("a hostile (non-private) pre-created temp dir is refused (B3)", () => {
+  const key = sha16("/proj");
+  const tempDir = `/tmp/windmill-ts/${key}`;
+  const deps = makeDeps({
+    cwd: "/proj",
+    exists: ["/proj", "/tmp", "/tmp/windmill-ts", tempDir],
+    dirs: ["/proj", "/tmp", "/tmp/windmill-ts", tempDir],
+    writable: ["/tmp/windmill-ts", tempDir],
+    // NOT private (attacker-owned or loose perms) → must refuse.
+    privateDirs: [],
+    packageJson: ["/proj"],
+  });
+  const res = resolveCacheDir({}, deps);
+  assert.equal(res.kind, "none");
+  assert.equal(res.dir, null);
+});
+
+test("a hostile shared temp root (symlink/non-private) is refused (B3)", () => {
+  const key = sha16("/proj");
+  const deps = makeDeps({
+    cwd: "/proj",
+    // The per-project child does not exist, but the shared root does and is
+    // NOT private (e.g. a symlink or another user's dir) → refuse.
+    exists: ["/proj", "/tmp", "/tmp/windmill-ts"],
+    dirs: ["/proj", "/tmp", "/tmp/windmill-ts"],
+    writable: ["/tmp/windmill-ts"],
+    privateDirs: [],
+    packageJson: ["/proj"],
+  });
+  const res = resolveCacheDir({}, deps);
+  assert.equal(res.kind, "none");
+  assert.equal(res.dir, null);
+  // Sanity: the same layout with a private shared root would be usable.
+  assert.equal(
+    resolveCacheDir(
+      {},
+      makeDeps({
+        cwd: "/proj",
+        exists: ["/proj", "/tmp", "/tmp/windmill-ts"],
+        dirs: ["/proj", "/tmp", "/tmp/windmill-ts"],
+        writable: ["/tmp/windmill-ts"],
+        privateDirs: ["/tmp/windmill-ts"],
+        packageJson: ["/proj"],
+      }),
+    ).dir,
+    `/tmp/windmill-ts/${key}`,
+  );
 });
 
 test("no writable location yields a null cache directory", () => {
@@ -227,7 +306,7 @@ test("different real roots get different keys; symlinks to one root share a key"
   assert.equal(link.dir, a.dir);
 });
 
-test("an explicit writable override wins; an unwritable one errors", () => {
+test("an explicit writable override wins; unwritable/regular-file overrides error (S4)", () => {
   const ok = resolveCacheDir(
     { override: "/w/cache" },
     makeDeps({ cwd: "/proj", exists: ["/w"], dirs: ["/w"], writable: ["/w"] }),
@@ -235,13 +314,34 @@ test("an explicit writable override wins; an unwritable one errors", () => {
   assert.equal(ok.kind, "override");
   assert.equal(ok.dir, "/w/cache");
 
+  // Parent writable but chosen path already exists as an unwritable directory.
+  assert.throws(
+    () =>
+      resolveCacheDir(
+        { override: "/ex" },
+        makeDeps({ cwd: "/proj", exists: ["/ex"], dirs: ["/ex"], writable: [] }),
+      ),
+    /not a writable directory/,
+  );
+
+  // Override is a regular file, not a directory.
+  assert.throws(
+    () =>
+      resolveCacheDir(
+        { override: "/file" },
+        makeDeps({ cwd: "/proj", exists: ["/file"], dirs: [], writable: ["/file"] }),
+      ),
+    /not a writable directory/,
+  );
+
+  // Non-existent target whose parent is unwritable.
   assert.throws(
     () =>
       resolveCacheDir(
         { override: "/ro/cache" },
         makeDeps({ cwd: "/proj", exists: ["/ro"], dirs: ["/ro"], writable: [] }),
       ),
-    /not writable/,
+    /not a writable directory/,
   );
 });
 

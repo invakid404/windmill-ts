@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { mkdir, rename, readFile, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, rename, readFile, rm, writeFile } from "node:fs/promises";
 import * as nodePath from "node:path";
 import { compareStrings } from "../resources.js";
 import { CACHE_FILE_NAME } from "./cacheDir.js";
@@ -43,10 +43,70 @@ export const hashResourceTypes = (types: readonly HubResourceType[]): string => 
 const cacheFilePath = (dir: string): string =>
   nodePath.join(dir, CACHE_FILE_NAME);
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value != null && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Fully validate a parsed v1 cache payload and every record, so no malformed
+ * entry can reach `hashResourceTypes()` and throw. Returns a value-safe reason
+ * (never source content) when the payload is unusable.
+ */
+const validateCachePayload = (
+  parsed: unknown,
+): { ok: true } | { ok: false; reason: string } => {
+  if (!isRecord(parsed)) {
+    return { ok: false, reason: "cache is not a JSON object" };
+  }
+  if (parsed["formatVersion"] !== CACHE_FORMAT_VERSION) {
+    return { ok: false, reason: "unsupported cache format version" };
+  }
+  if (typeof parsed["source"] !== "string") {
+    return { ok: false, reason: "missing or invalid source" };
+  }
+  if (typeof parsed["capturedAt"] !== "string") {
+    return { ok: false, reason: "missing or invalid capturedAt" };
+  }
+  if (typeof parsed["sha256"] !== "string") {
+    return { ok: false, reason: "missing or invalid sha256" };
+  }
+  if (!Array.isArray(parsed["resourceTypes"])) {
+    return { ok: false, reason: "resourceTypes is not an array" };
+  }
+  for (const record of parsed["resourceTypes"]) {
+    if (!isRecord(record)) {
+      return { ok: false, reason: "a resource type record is not an object" };
+    }
+    if (typeof record["name"] !== "string" || record["name"].length === 0) {
+      return { ok: false, reason: "a resource type record has an invalid name" };
+    }
+    const schema = record["schema"];
+    if (schema == null || typeof schema !== "object" || Array.isArray(schema)) {
+      return {
+        ok: false,
+        reason: `resource type ${JSON.stringify(record["name"])} has a non-object schema`,
+      };
+    }
+    if (record["description"] != null && typeof record["description"] !== "string") {
+      return {
+        ok: false,
+        reason: `resource type ${JSON.stringify(record["name"])} has an invalid description`,
+      };
+    }
+    if (record["app"] != null && typeof record["app"] !== "string") {
+      return {
+        ok: false,
+        reason: `resource type ${JSON.stringify(record["name"])} has an invalid app`,
+      };
+    }
+  }
+  return { ok: true };
+};
+
 /**
  * Read and integrity-check the cache. A missing file, unsupported format
- * version, malformed JSON, or a stored hash that no longer matches the payload
- * all yield a non-`ok` result; only a self-consistent v1 cache returns `ok`.
+ * version, malformed JSON/record, or a stored hash that no longer matches the
+ * payload all yield a non-`ok` result; only a fully-validated, self-consistent
+ * v1 cache returns `ok`.
  */
 export const readCache = async (dir: string): Promise<CacheReadResult> => {
   let content: string;
@@ -56,10 +116,9 @@ export const readCache = async (dir: string): Promise<CacheReadResult> => {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return { status: "missing" };
     }
-    return {
-      status: "invalid",
-      reason: err instanceof Error ? err.message : String(err),
-    };
+    // Value-safe: surface only the error code, never a raw message/content.
+    const code = (err as NodeJS.ErrnoException).code ?? "read error";
+    return { status: "invalid", reason: `cache read failed (${code})` };
   }
 
   let parsed: unknown;
@@ -69,15 +128,9 @@ export const readCache = async (dir: string): Promise<CacheReadResult> => {
     return { status: "invalid", reason: "cache is not valid JSON" };
   }
 
-  if (
-    parsed == null ||
-    typeof parsed !== "object" ||
-    (parsed as { formatVersion?: unknown }).formatVersion !==
-      CACHE_FORMAT_VERSION ||
-    !Array.isArray((parsed as { resourceTypes?: unknown }).resourceTypes) ||
-    typeof (parsed as { sha256?: unknown }).sha256 !== "string"
-  ) {
-    return { status: "invalid", reason: "unsupported cache shape or version" };
+  const validation = validateCachePayload(parsed);
+  if (!validation.ok) {
+    return { status: "invalid", reason: validation.reason };
   }
 
   const cache = parsed as CachedResourceTypes;
@@ -105,6 +158,8 @@ export const writeCacheIfChanged = async (
   dir: string,
   types: readonly HubResourceType[],
   capturedAt: string,
+  /** Mode for directories created here (e.g. 0o700 for the shared temp root). */
+  dirMode?: number,
 ): Promise<CacheWriteResult> => {
   const hash = hashResourceTypes(types);
 
@@ -121,11 +176,21 @@ export const writeCacheIfChanged = async (
     resourceTypes: sortByName(types),
   };
 
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, { recursive: true, ...(dirMode != null && { mode: dirMode }) });
   const finalPath = cacheFilePath(dir);
-  const tempPath = `${finalPath}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tempPath, JSON.stringify(payload, null, 2), "utf-8");
-  await rename(tempPath, finalPath);
+  // A random, exclusively-created (`wx`) temp name avoids same-process collisions
+  // between concurrent writers; the atomic rename keeps last-writer-wins across
+  // processes, and the `finally` removes any residue from a failed write/rename.
+  const tempPath = `${finalPath}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(tempPath, JSON.stringify(payload, null, 2), {
+      encoding: "utf-8",
+      flag: "wx",
+    });
+    await rename(tempPath, finalPath);
+  } finally {
+    await rm(tempPath, { force: true }).catch(() => {});
+  }
 
   return {
     written: true,

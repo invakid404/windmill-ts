@@ -1,4 +1,12 @@
-import { accessSync, constants, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  accessSync,
+  constants,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
 import * as nodePath from "node:path";
@@ -31,8 +39,14 @@ export type CacheDirDeps = {
   tmpdir: string;
   pathExists(p: string): boolean;
   isDirectory(p: string): boolean;
-  /** True if `dir` (or its nearest existing ancestor) is writable. */
+  /** True if `dir` (or its nearest existing ancestor) is a writable directory. */
   isWritable(p: string): boolean;
+  /**
+   * True only if `p` is a real directory (not a symlink) owned by the current
+   * user with no group/other permission bits — the safety gate for the shared
+   * temp fallback root.
+   */
+  isPrivateDir(p: string): boolean;
   hasPackageJson(dir: string): boolean;
   hasPackageJsonWorkspaces(dir: string): boolean;
   hasPnpmWorkspace(dir: string): boolean;
@@ -81,6 +95,42 @@ const ancestorsUpToBoundary = (start: string, boundary: string): string[] => {
   return result;
 };
 
+/**
+ * A cache directory candidate is usable when — if it already exists — it is a
+ * writable directory, or — if it does not exist — its nearest existing ancestor
+ * is a writable directory we can create it under. This rejects an existing
+ * regular file, an unwritable existing directory, and a blocked path component
+ * (e.g. a `.cache` that is a file).
+ */
+const usableCacheTarget = (dir: string, deps: CacheDirDeps): boolean => {
+  if (deps.pathExists(dir)) {
+    return deps.isDirectory(dir) && deps.isWritable(dir);
+  }
+  for (const ancestor of ancestors(nodePath.dirname(dir))) {
+    if (deps.pathExists(ancestor)) {
+      return deps.isDirectory(ancestor) && deps.isWritable(ancestor);
+    }
+  }
+  return false;
+};
+
+/**
+ * The shared `<tmp>/windmill-ts` root is a squatting target on multi-user hosts.
+ * Only reuse it (or its per-project child) when it is a private, current-user
+ * -owned, non-symlink directory; otherwise refuse the temp fallback entirely.
+ * When neither exists yet we create it ourselves with private (0700) mode.
+ */
+const isSafeTempCandidate = (dir: string, deps: CacheDirDeps): boolean => {
+  if (deps.pathExists(dir)) {
+    return deps.isPrivateDir(dir) && deps.isWritable(dir);
+  }
+  const sharedRoot = nodePath.dirname(dir); // <tmp>/windmill-ts
+  if (deps.pathExists(sharedRoot)) {
+    return deps.isPrivateDir(sharedRoot) && deps.isWritable(sharedRoot);
+  }
+  return deps.isWritable(deps.tmpdir);
+};
+
 const osCacheRoot = (deps: CacheDirDeps): string | null => {
   const xdg = deps.env["XDG_CACHE_HOME"];
   if (xdg) {
@@ -113,13 +163,12 @@ export const resolveCacheDir = (
 ): CacheDirResolution => {
   const override = input.override;
   if (override) {
-    const parent = nodePath.dirname(override);
-    const writable =
-      (deps.pathExists(override) && deps.isWritable(override)) ||
-      deps.isWritable(parent);
-    if (!writable) {
+    // An explicit override must resolve to a usable writable directory — an
+    // existing unwritable dir or a regular file fails immediately (never
+    // silently relocates).
+    if (!usableCacheTarget(override, deps)) {
       throw new Error(
-        `Configured cache directory ${override} is not writable`,
+        `Configured cache directory ${override} is not a writable directory`,
       );
     }
     return { dir: override, kind: "override" };
@@ -137,15 +186,14 @@ export const resolveCacheDir = (
 
   for (const dir of ancestorsUpToBoundary(projectRoot, boundary)) {
     const nodeModules = nodePath.join(dir, "node_modules");
-    if (
-      deps.pathExists(nodeModules) &&
-      deps.isDirectory(nodeModules) &&
-      deps.isWritable(nodeModules)
-    ) {
-      return {
-        dir: nodePath.join(nodeModules, ".cache", "windmill-ts"),
-        kind: "node_modules",
-      };
+    // Never create node_modules: it must already exist as a directory. The
+    // `.cache/windmill-ts` target under it is then validated like any candidate.
+    if (!deps.pathExists(nodeModules) || !deps.isDirectory(nodeModules)) {
+      continue;
+    }
+    const target = nodePath.join(nodeModules, ".cache", "windmill-ts");
+    if (usableCacheTarget(target, deps)) {
+      return { dir: target, kind: "node_modules" };
     }
   }
 
@@ -154,13 +202,13 @@ export const resolveCacheDir = (
   const osRoot = osCacheRoot(deps);
   if (osRoot) {
     const osDir = nodePath.join(osRoot, projectKey);
-    if (deps.isWritable(osDir)) {
+    if (usableCacheTarget(osDir, deps)) {
       return { dir: osDir, kind: "os" };
     }
   }
 
   const tempDir = nodePath.join(deps.tmpdir, "windmill-ts", projectKey);
-  if (deps.isWritable(tempDir)) {
+  if (isSafeTempCandidate(tempDir, deps)) {
     return { dir: tempDir, kind: "temp" };
   }
 
@@ -199,7 +247,27 @@ export const defaultCacheDirDeps = (
       return false;
     }
     try {
-      accessSync(existing, constants.W_OK);
+      // Directories need write (create entries) and execute/search (traverse).
+      accessSync(existing, constants.W_OK | constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  isPrivateDir: (p) => {
+    try {
+      // lstat, so a symlink is rejected (isDirectory() is false for a link).
+      const st = lstatSync(p);
+      if (!st.isDirectory()) {
+        return false;
+      }
+      const getuid = process.getuid?.bind(process);
+      if (getuid) {
+        // POSIX: must be owned by us with no group/other bits (0700-style).
+        if (st.uid !== getuid() || (st.mode & 0o077) !== 0) {
+          return false;
+        }
+      }
       return true;
     } catch {
       return false;

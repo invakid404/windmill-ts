@@ -6,6 +6,35 @@ import type { SourceResourceType } from "../types.js";
 export type MetadataFormat = "yaml" | "json";
 
 /**
+ * Describe a YAML/JSON parse failure using only structured, content-free
+ * location data (error code, line/column, or byte position). The underlying
+ * parser messages embed the offending source line — which may contain a resource
+ * secret — so they are NEVER interpolated into an error.
+ */
+export const describeParseLocation = (err: unknown): string => {
+  // The `yaml` library exposes a structured, content-free location + code.
+  const linePos = (err as { linePos?: Array<{ line: number; col: number }> })
+    .linePos;
+  const code = (err as { code?: string }).code;
+  if (Array.isArray(linePos) && linePos[0]) {
+    const codePart = typeof code === "string" ? ` [${code}]` : "";
+    return `${codePart} at line ${linePos[0].line}, column ${linePos[0].col}`;
+  }
+  // JSON SyntaxError: extract ONLY numeric location, never the message snippet
+  // (Node's message can quote the surrounding source, i.e. a secret).
+  const message = err instanceof Error ? err.message : "";
+  const lineCol = message.match(/line (\d+) column (\d+)/i);
+  if (lineCol) {
+    return ` at line ${lineCol[1]}, column ${lineCol[2]}`;
+  }
+  const position = message.match(/position (\d+)/i);
+  if (position) {
+    return ` at position ${position[1]}`;
+  }
+  return "";
+};
+
+/**
  * Parse a metadata document by its declared format. Errors are filename-rich
  * and never echo the parsed document, since resource values may hold secrets.
  * The quoted `!inline ` prefix used by file resources is an ordinary YAML/JSON
@@ -24,9 +53,8 @@ export const parseByFormat = (
     // which guards against alias bombs.
     return parseYaml(content);
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `Failed to parse ${format.toUpperCase()} metadata file ${relPath}: ${reason}`,
+      `Failed to parse ${format.toUpperCase()} metadata file ${relPath}${describeParseLocation(err)}`,
     );
   }
 };
@@ -54,6 +82,29 @@ const asOptionalSchema = (
 ): JSONSchema | undefined => {
   if (value == null) {
     return undefined;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(
+      `Invalid ${field} in ${relPath}: expected a JSON Schema object`,
+    );
+  }
+  return value as JSONSchema;
+};
+
+/**
+ * Like {@link asOptionalSchema} but the schema is mandatory: an explicit
+ * resource-type definition must carry an object-valued `schema` (a missing,
+ * null, array, or scalar schema is a filename-rich hard error).
+ */
+export const asRequiredSchema = (
+  value: unknown,
+  relPath: string,
+  field: string,
+): JSONSchema => {
+  if (value == null) {
+    throw new Error(
+      `Missing ${field} in ${relPath}: a resource type must define an object ${field}`,
+    );
   }
   if (typeof value !== "object" || Array.isArray(value)) {
     throw new Error(
@@ -130,7 +181,7 @@ export const parseResourceTypeMetadata = (
   }
   return {
     name,
-    schema: asOptionalSchema(result.data.schema, relPath, "schema"),
+    schema: asRequiredSchema(result.data.schema, relPath, "schema"),
     description:
       typeof result.data.description === "string"
         ? result.data.description

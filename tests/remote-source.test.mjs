@@ -33,9 +33,10 @@ test("remoteSource.listResources keeps the exclusion filter and sorts by path", 
       items.map((i) => i.path),
       ["f/a", "f/b"],
     );
-    assert.equal(
-      calls[0].resourceTypeExclude,
-      "cache,state,app_theme,app_custom",
+    // The exclusion's meaning is the SET of four types, not their comma order.
+    assert.deepEqual(
+      new Set(calls[0].resourceTypeExclude.split(",")),
+      new Set(["cache", "state", "app_theme", "app_custom"]),
     );
   } finally {
     wmill.ResourceService.listResource = original;

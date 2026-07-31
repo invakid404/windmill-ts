@@ -457,3 +457,190 @@ test("an unused local resource type definition is harmless", async () => {
     },
   );
 });
+
+// --- B1: parser errors never leak source content (secrets) ----------------
+
+const SENTINEL = "SUPER_SECRET_DO_NOT_LOG_9f3a2b";
+// A short fragment that provably appears in BOTH the raw YAML frame (which quotes
+// the whole line) and the raw JSON message (which quotes a ~10-char window).
+const SECRET_FRAGMENT = "SUPER_SEC";
+
+test("a malformed YAML resource never leaks its source into the error (B1)", async () => {
+  // A broken flow sequence makes the YAML parser frame the offending line,
+  // which holds the secret; the error must NOT include it.
+  await withTree(
+    {
+      "f/demo/bad.resource.yaml": `resource_type: redis\nvalue:\n  password: [${SENTINEL}\n`,
+    },
+    async (dir) => {
+      await assert.rejects(
+        () => createLocalSource({ folder: dir, ...OFFLINE }),
+        (err) =>
+          /bad\.resource\.yaml/.test(err.message) &&
+          !err.message.includes(SECRET_FRAGMENT),
+      );
+    },
+  );
+});
+
+test("a malformed JSON resource never leaks its source into the error (B1)", async () => {
+  // An unquoted value forces Node's JSON error to quote the surrounding source
+  // (which contains the secret); the sanitized error must NOT include it.
+  await withTree(
+    {
+      "f/demo/bad.resource.json": `{"resource_type":"redis","value":{"password":${SENTINEL}}}`,
+    },
+    async (dir) => {
+      await assert.rejects(
+        () => createLocalSource({ folder: dir, ...OFFLINE }),
+        (err) =>
+          /bad\.resource\.json/.test(err.message) &&
+          !err.message.includes(SECRET_FRAGMENT),
+      );
+    },
+  );
+});
+
+// --- B2: flow-directory metadata symlink containment ----------------------
+
+test("a flow metadata symlink escaping the root is rejected (B2)", async () => {
+  const outside = await mkdtemp(join(tmpdir(), "wmts-flow-outside-"));
+  await writeFile(
+    join(outside, "evil-flow.yaml"),
+    "schema: { type: object, properties: {} }\n",
+  );
+  await withTree(
+    { "f/demo/keep.script.yaml": "schema: { type: object, properties: {} }\n" },
+    async (dir) => {
+      await mkdir(join(dir, "f/demo/escape.flow"), { recursive: true });
+      await symlink(
+        join(outside, "evil-flow.yaml"),
+        join(dir, "f/demo/escape.flow/flow.yaml"),
+      );
+      await assert.rejects(
+        () => createLocalSource({ folder: dir, ...OFFLINE }),
+        /symlink that escapes the source root/,
+      );
+    },
+  );
+  await rm(outside, { force: true, recursive: true });
+});
+
+test("a contained flow metadata symlink is followed (B2)", async () => {
+  await withTree(
+    {
+      "shared/flow-body.yaml": "schema: { type: object, properties: { a: { type: string } } }\n",
+    },
+    async (dir) => {
+      await mkdir(join(dir, "f/demo/ok.flow"), { recursive: true });
+      // Relative symlink to a file that stays within the source root.
+      await symlink(
+        join(dir, "shared/flow-body.yaml"),
+        join(dir, "f/demo/ok.flow/flow.yaml"),
+      );
+      const source = await createLocalSource({ folder: dir, ...OFFLINE });
+      assert.deepEqual(paths(await collect(source.listFlows())), ["f/demo/ok"]);
+    },
+  );
+});
+
+// --- S1 (D8): branch-specific resources are rejected ----------------------
+
+const GIT_BRANCHES_MAIN = "gitBranches:\n  main: {}\n  dev: {}\n";
+
+test("branch-specific resource overrides are rejected, naming base + override (S1)", async () => {
+  await withTree(
+    {
+      "wmill.yaml": GIT_BRANCHES_MAIN,
+      "redis.resource-type.yaml": REDIS_RT,
+      "f/x.resource.yaml": "resource_type: redis\nvalue: { host: base }\n",
+      "f/x.main.resource.yaml": "resource_type: redis\nvalue: { host: override }\n",
+    },
+    async (dir) => {
+      await assert.rejects(
+        () => createLocalSource({ folder: dir, ...OFFLINE }),
+        (err) =>
+          /Branch-specific resource metadata is not supported/.test(err.message) &&
+          /f\/x\.resource\.yaml/.test(err.message) &&
+          /f\/x\.main\.resource\.yaml/.test(err.message),
+      );
+    },
+  );
+});
+
+test("an override-only branch-specific resource is rejected (S1)", async () => {
+  await withTree(
+    {
+      "wmill.yaml": GIT_BRANCHES_MAIN,
+      "redis.resource-type.yaml": REDIS_RT,
+      "f/x.main.resource.yaml": "resource_type: redis\nvalue: { host: override }\n",
+    },
+    async (dir) => {
+      await assert.rejects(
+        () => createLocalSource({ folder: dir, ...OFFLINE }),
+        (err) =>
+          /Branch-specific resource metadata is not supported/.test(err.message) &&
+          /f\/x\.main\.resource\.yaml/.test(err.message),
+      );
+    },
+  );
+});
+
+test("specificItems.resources plus a branch-specific file is rejected (S1)", async () => {
+  await withTree(
+    {
+      "wmill.yaml":
+        "gitBranches:\n  prod:\n    specificItems:\n      resources:\n        - f/y\n",
+      "redis.resource-type.yaml": REDIS_RT,
+      "f/y.prod.resource.yaml": "resource_type: redis\nvalue: { host: prod }\n",
+    },
+    async (dir) => {
+      await assert.rejects(
+        () => createLocalSource({ folder: dir, ...OFFLINE }),
+        /Branch-specific resource metadata is not supported/,
+      );
+    },
+  );
+});
+
+test("a legitimately dotted resource path is not treated as branch-specific (S1)", async () => {
+  await withTree(
+    {
+      // Branch "main" is declared, but "config" is not, so f/my.config is a
+      // real resource path, not a branch override.
+      "wmill.yaml": GIT_BRANCHES_MAIN,
+      "redis.resource-type.yaml": REDIS_RT,
+      "f/my.config.resource.yaml": "resource_type: redis\nvalue: { host: h }\n",
+    },
+    async (dir) => {
+      const source = await createLocalSource({ folder: dir, ...OFFLINE });
+      const resources = await collect(source.listResources());
+      assert.deepEqual(paths(resources), ["f/my.config"]);
+    },
+  );
+});
+
+// --- S7: explicit resource-type records require an object schema ----------
+
+test("a local resource-type without an object schema is rejected (S7)", async () => {
+  const cases = {
+    "no_schema.resource-type.yaml": "description: no schema here\n",
+    "null_schema.resource-type.yaml": "schema: null\n",
+    "array_schema.resource-type.yaml": "schema: [1, 2, 3]\n",
+    "scalar_schema.resource-type.yaml": "schema: not-an-object\n",
+    "no_schema.resource-type.json": JSON.stringify({ description: "x" }),
+    "null_schema.resource-type.json": JSON.stringify({ schema: null }),
+    "array_schema.resource-type.json": JSON.stringify({ schema: [1] }),
+    "scalar_schema.resource-type.json": JSON.stringify({ schema: "str" }),
+  };
+  for (const [file, content] of Object.entries(cases)) {
+    await withTree({ [file]: content }, async (dir) => {
+      await assert.rejects(
+        () => createLocalSource({ folder: dir, ...OFFLINE }),
+        (err) =>
+          err.message.includes(file) && /schema/.test(err.message),
+        `expected ${file} to be rejected for a non-object schema`,
+      );
+    });
+  }
+});

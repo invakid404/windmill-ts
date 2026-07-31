@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -80,6 +80,7 @@ test("local-only options in remote mode are usage errors", async () => {
 
 test("no --refresh-hub-types option is advertised", async () => {
   const result = runCli(["generate", "--help"], {});
+  assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.includes("--refresh-hub-types"), false);
   assert.match(result.stdout, /--from-folder/);
   assert.match(result.stdout, /--offline/);
@@ -118,5 +119,24 @@ test("explicit --workspace selects remote mode even when config has source.folde
       /remotes\.ndjson|not found in Windmill CLI config/,
     );
     assert.equal(result.stdout.includes("auto-generated"), false);
+  });
+});
+
+test("a malformed resource never leaks its source into CLI stderr (B1)", async () => {
+  await withCwd(async (cwd) => {
+    const folder = join(cwd, "ws");
+    const secretFragment = "SUPER_SEC";
+    const secret = "SUPER_SECRET_DO_NOT_LOG_9f3a2b";
+    // A separate source folder holding one malformed resource file.
+    await mkdir(folder, { recursive: true });
+    await writeFile(
+      join(folder, "bad.resource.yaml"),
+      `resource_type: redis\nvalue:\n  password: [${secret}\n`,
+    );
+    const result = runCli(["--from-folder", folder, "--offline", "-"], { cwd });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /bad\.resource\.yaml/);
+    assert.equal(result.stderr.includes(secretFragment), false);
+    assert.equal(result.stdout.includes(secretFragment), false);
   });
 });

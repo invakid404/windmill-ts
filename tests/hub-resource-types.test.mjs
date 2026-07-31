@@ -108,9 +108,24 @@ test("normalizeHubResponse parses JSON-string schemas, sorts, and omits invalid"
   assert.deepEqual(result.omitted, ["bad_json", "null_schema"]);
 });
 
-test("normalizeHubResponse rejects duplicate names and wrong shapes", () => {
+test("normalizeHubResponse rejects duplicate names before schema validity (S6)", () => {
+  // valid + valid
   assert.throws(
     () => normalizeHubResponse([hubRecord("dup"), hubRecord("dup")]),
+    /duplicate resource type name/,
+  );
+  // valid + invalid (null schema): still a duplicate name → reject
+  assert.throws(
+    () => normalizeHubResponse([hubRecord("dup"), hubRecord("dup", { schema: null })]),
+    /duplicate resource type name/,
+  );
+  // invalid + invalid (both unparseable schemas): still reject on the name
+  assert.throws(
+    () =>
+      normalizeHubResponse([
+        hubRecord("dup", { schema: "{bad" }),
+        hubRecord("dup", { schema: null }),
+      ]),
     /duplicate resource type name/,
   );
   assert.throws(
@@ -446,15 +461,21 @@ test("transient 5xx is retried; non-retryable 4xx is not", async () => {
   });
   assert.equal(result.types.length, 1);
 
+  // CR-15: a non-retryable 404 must be fetched exactly once (no retries).
+  let calls404 = 0;
   await assert.rejects(
     () =>
       fetchHubResourceTypes({
-        fetchImpl: retryFetch([new Response("", { status: 404 })]),
+        fetchImpl: async () => {
+          calls404++;
+          return new Response("", { status: 404 });
+        },
         retries: 3,
         minTimeoutMs: 1,
       }),
     /HTTP 404/,
   );
+  assert.equal(calls404, 1);
 });
 
 test("malformed JSON from the Hub is an error", async () => {
@@ -466,4 +487,261 @@ test("malformed JSON from the Hub is an error", async () => {
         retries: 0,
       }),
   );
+});
+
+// A HubResourceType (parsed schema object), as stored in the cache.
+const cachedType = (name) => ({
+  name,
+  schema: rtSchema(name),
+  description: null,
+  app: name,
+});
+
+// --- S2: complete cache-payload validation --------------------------------
+
+test("readCache rejects malformed payloads without throwing (S2)", async () => {
+  const cases = {
+    "null cache": "null",
+    "scalar cache": "42",
+    "missing source": JSON.stringify({
+      formatVersion: 1,
+      capturedAt: "t",
+      sha256: "x",
+      resourceTypes: [],
+    }),
+    "missing capturedAt": JSON.stringify({
+      formatVersion: 1,
+      source: HUB_ENDPOINT,
+      sha256: "x",
+      resourceTypes: [],
+    }),
+    "null record": JSON.stringify({
+      formatVersion: 1,
+      source: HUB_ENDPOINT,
+      capturedAt: "t",
+      sha256: "x",
+      resourceTypes: [null],
+    }),
+    "record with empty name": JSON.stringify({
+      formatVersion: 1,
+      source: HUB_ENDPOINT,
+      capturedAt: "t",
+      sha256: "x",
+      resourceTypes: [{ name: "", schema: {} }],
+    }),
+    "record with non-object schema": JSON.stringify({
+      formatVersion: 1,
+      source: HUB_ENDPOINT,
+      capturedAt: "t",
+      sha256: "x",
+      resourceTypes: [{ name: "a", schema: [1, 2] }],
+    }),
+  };
+  for (const [label, content] of Object.entries(cases)) {
+    await withCacheDir(async (cacheDir) => {
+      await writeFile(join(cacheDir, CACHE_FILE), content);
+      // Must return a value-safe invalid result, never throw.
+      const result = await readCache(cacheDir);
+      assert.equal(result.status, "invalid", label);
+    });
+  }
+});
+
+test("a corrupt cache is repaired online and reported (path+reason) offline (S2)", async () => {
+  await withCacheDir(async (cacheDir) => {
+    const corrupt = JSON.stringify({
+      formatVersion: 1,
+      source: HUB_ENDPOINT,
+      capturedAt: "t",
+      sha256: "x",
+      resourceTypes: [null],
+    });
+    await writeFile(join(cacheDir, CACHE_FILE), corrupt);
+
+    // Online: the corrupt cache does not abort the run; it is refetched/rebuilt.
+    const online = await composeResourceTypes(
+      baseParams({
+        usedNames: new Set(["postgresql"]),
+        cacheDir,
+        fetchImpl: mockFetch([hubRecord("postgresql")]),
+      }),
+    );
+    assert.equal(online.get("postgresql").schema.type, "object");
+    assert.equal((await readCache(cacheDir)).status, "ok");
+
+    // Offline: a corrupt cache fails with the cache path and the reason.
+    await writeFile(join(cacheDir, CACHE_FILE), "null");
+    await assert.rejects(
+      () =>
+        composeResourceTypes(
+          baseParams({
+            usedNames: new Set(["postgresql"]),
+            cacheDir,
+            hubMode: "offline",
+            fetchImpl: async () => {
+              throw new Error("must not fetch offline");
+            },
+          }),
+        ),
+      (err) => err.message.includes(cacheDir) && /invalid/.test(err.message),
+    );
+  });
+});
+
+// --- S3: concurrent cache writes are atomic and leave no residue ----------
+
+test("concurrent cache writes are atomic and leave no temp residue (S3)", async () => {
+  await withCacheDir(async (cacheDir) => {
+    const a = [cachedType("aaa")];
+    const b = [cachedType("bbb")];
+    await Promise.all([
+      writeCacheIfChanged(cacheDir, a, "2026-01-01T00:00:00.000Z"),
+      writeCacheIfChanged(cacheDir, b, "2026-01-01T00:00:00.000Z"),
+    ]);
+
+    const result = await readCache(cacheDir);
+    assert.equal(result.status, "ok");
+    const names = result.cache.resourceTypes.map((t) => t.name);
+    assert.equal(names.length, 1);
+    assert.ok(names[0] === "aaa" || names[0] === "bbb");
+
+    const { readdir } = await import("node:fs/promises");
+    const files = await readdir(cacheDir);
+    assert.equal(
+      files.some((f) => f.endsWith(".tmp")),
+      false,
+      `unexpected temp residue: ${files.join(", ")}`,
+    );
+  });
+});
+
+// --- S5: Retry-After is honored but bounded -------------------------------
+
+test("Retry-After (seconds) is honored but clamped to the max (S5)", async () => {
+  const start = Date.now();
+  const result = await fetchHubResourceTypes({
+    fetchImpl: retryFetch([
+      new Response("", { status: 429, headers: { "retry-after": "100000" } }),
+      jsonResponse([hubRecord("postgresql")]),
+    ]),
+    retries: 3,
+    minTimeoutMs: 1,
+    maxTimeoutMs: 30,
+  });
+  const elapsed = Date.now() - start;
+  assert.equal(result.types.length, 1);
+  assert.ok(elapsed < 2000, `expected a bounded delay, waited ${elapsed}ms`);
+});
+
+test("Retry-After (far-future date) is clamped (S5)", async () => {
+  const future = new Date(Date.now() + 365 * 24 * 3600 * 1000).toUTCString();
+  const start = Date.now();
+  const result = await fetchHubResourceTypes({
+    fetchImpl: retryFetch([
+      new Response("", { status: 429, headers: { "retry-after": future } }),
+      jsonResponse([hubRecord("postgresql")]),
+    ]),
+    retries: 3,
+    minTimeoutMs: 1,
+    maxTimeoutMs: 30,
+  });
+  const elapsed = Date.now() - start;
+  assert.equal(result.types.length, 1);
+  assert.ok(elapsed < 2000, `expected a bounded delay, waited ${elapsed}ms`);
+});
+
+test("a 408 is retried (S5)", async () => {
+  const result = await fetchHubResourceTypes({
+    fetchImpl: retryFetch([
+      new Response("", { status: 408 }),
+      jsonResponse([hubRecord("postgresql")]),
+    ]),
+    minTimeoutMs: 1,
+    maxTimeoutMs: 2,
+  });
+  assert.equal(result.types.length, 1);
+});
+
+test("a request timeout aborts, retries, then fails (S5)", async () => {
+  let calls = 0;
+  const hangingFetch = (_url, init) => {
+    calls++;
+    return new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () =>
+        reject(new Error("The operation was aborted")),
+      );
+    });
+  };
+  await assert.rejects(() =>
+    fetchHubResourceTypes({
+      fetchImpl: hangingFetch,
+      retries: 1,
+      timeoutMs: 20,
+      minTimeoutMs: 1,
+      maxTimeoutMs: 2,
+    }),
+  );
+  assert.ok(calls >= 2, `expected at least one retry, got ${calls} call(s)`);
+});
+
+// --- S7: catalog records require an object schema -------------------------
+
+test("a catalog record without an object schema is rejected (S7)", async () => {
+  const badCatalogs = [
+    [{ name: "x" }],
+    [{ name: "x", schema: null }],
+    [{ name: "x", schema: [1, 2] }],
+    [{ name: "x", schema: "not-an-object" }],
+  ];
+  for (const catalog of badCatalogs) {
+    await withCacheDir(async (cacheDir) => {
+      const file = join(cacheDir, "catalog.json");
+      await writeFile(file, JSON.stringify(catalog));
+      await assert.rejects(
+        () =>
+          composeResourceTypes(
+            baseParams({
+              usedNames: new Set(["x"]),
+              resourceTypesFile: file,
+              cacheDir,
+              fetchImpl: async () => {
+                throw new Error("must not fetch");
+              },
+            }),
+          ),
+        /schema/,
+      );
+    });
+  }
+});
+
+// --- S8: the composed resource-type map is name-sorted --------------------
+
+test("the composed resource-type map is name-sorted from a shuffled composition (S8)", async () => {
+  await withCacheDir(async (cacheDir) => {
+    const catalogFile = join(cacheDir, "catalog.json");
+    // Deliberately unsorted catalog and non-alphabetical local/Hub names.
+    await writeFile(
+      catalogFile,
+      JSON.stringify([
+        { name: "zeta", schema: rtSchema("zeta") },
+        { name: "beta", schema: rtSchema("beta") },
+      ]),
+    );
+    const localDefs = new Map([
+      ["mid", { name: "mid", schema: rtSchema("mid"), format_extension: null }],
+    ]);
+    const result = await composeResourceTypes(
+      baseParams({
+        localDefs,
+        usedNames: new Set(["zeta", "beta", "mid", "alpha"]),
+        resourceTypesFile: catalogFile,
+        cacheDir,
+        fetchImpl: mockFetch([hubRecord("alpha")]),
+      }),
+    );
+    const keys = [...result.keys()];
+    assert.deepEqual(keys, [...keys].sort());
+    assert.deepEqual(new Set(keys), new Set(["alpha", "beta", "mid", "zeta"]));
+  });
 });

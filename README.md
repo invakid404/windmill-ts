@@ -116,7 +116,7 @@ that your local `*.resource-type.yaml` files (and an optional committed catalog)
 do not define, windmill-ts completes the missing schemas from the public Windmill
 Hub:
 
-```
+```http
 GET https://hub.windmill.dev/resource_types/list
 Accept: application/json
 ```
@@ -363,11 +363,18 @@ The resolver context includes:
 
 The generator:
 
-1. Connects to your configured Windmill workspace
-2. Fetches all available scripts, flows and resource types
+1. Selects a source provider — a live Windmill workspace (remote mode) or a
+   local wmill-synced folder (`--from-folder`; see
+   [Generating from a local folder](#generating-from-a-local-folder))
+2. Obtains all available scripts, flows and resource types from that source,
+   fetching over HTTP in remote mode or reading metadata from disk (plus the
+   public Hub for missing resource-type schemas) in local mode
 3. Generates Zod schemas for validating inputs
 4. Creates type-safe wrapper functions for running scripts and flows
 5. Handles resource type references and validations
+
+The generated client and the codegen pipeline are identical in both modes; only
+the source of the generation metadata differs.
 
 ## License
 

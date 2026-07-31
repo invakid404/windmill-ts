@@ -1,7 +1,18 @@
-import { opendir, realpath, stat } from "node:fs/promises";
+import { lstat, opendir, realpath } from "node:fs/promises";
 import * as nodePath from "node:path";
 import type { MetadataFormat } from "./parsing.js";
 import { compareStrings } from "../resources.js";
+
+/**
+ * True when a path relative to the source root escapes it. Only a leading
+ * parent segment (`..`) or an absolute path counts as an escape; an in-root name
+ * that merely begins with `..` (e.g. `..files/data.txt`) does not.
+ */
+export const escapesRoot = (rel: string): boolean =>
+  rel === "" ||
+  rel === ".." ||
+  rel.startsWith(`..${nodePath.sep}`) ||
+  nodePath.isAbsolute(rel);
 
 export type MetadataKind = "script" | "flow" | "resource" | "resourceType";
 
@@ -60,15 +71,6 @@ const matchFileRule = (name: string, isRoot: boolean): SuffixRule | undefined =>
 const stripSuffix = (relPath: string, suffix: string): string =>
   relPath.slice(0, relPath.length - suffix.length);
 
-const fileExists = async (absPath: string): Promise<boolean> => {
-  try {
-    const st = await stat(absPath);
-    return st.isFile();
-  } catch {
-    return false;
-  }
-};
-
 /**
  * Assert that a symlinked metadata file resolves within the (real) source root.
  * Directory symlinks are never followed; only recognized metadata-file symlinks
@@ -81,7 +83,7 @@ const assertContainedSymlink = async (
 ): Promise<void> => {
   const real = await realpath(absPath);
   const rel = nodePath.relative(realRoot, real);
-  if (rel === "" || rel.startsWith("..") || nodePath.isAbsolute(rel)) {
+  if (escapesRoot(rel)) {
     throw new Error(
       `Metadata file ${relPath} is a symlink that escapes the source root`,
     );
@@ -92,20 +94,32 @@ const collectFlowDir = async (
   absDir: string,
   relDir: string,
   marker: string,
+  realRoot: string,
   out: DiscoveredFile[],
 ): Promise<void> => {
   const logical = stripSuffix(relDir, marker);
   for (const { file, format } of FLOW_DIR_FILES) {
     const absPath = nodePath.join(absDir, file);
-    if (await fileExists(absPath)) {
-      out.push({
-        kind: "flow",
-        format,
-        absPath,
-        relPath: `${relDir}/${file}`,
-        logical,
-      });
+    const relPath = `${relDir}/${file}`;
+
+    // Use lstat so a symlinked flow.yaml/flow.json is detected rather than
+    // silently followed by stat(), then apply the same realpath containment
+    // check as ordinary metadata symlinks. Both candidates are still collected
+    // so the cross-format duplicate check keeps firing.
+    let stats;
+    try {
+      stats = await lstat(absPath);
+    } catch {
+      continue;
     }
+
+    if (stats.isSymbolicLink()) {
+      await assertContainedSymlink(absPath, relPath, realRoot);
+    } else if (!stats.isFile()) {
+      continue;
+    }
+
+    out.push({ kind: "flow", format, absPath, relPath, logical });
   }
 };
 
@@ -143,7 +157,7 @@ const walk = async (
     if (dirent.isDirectory()) {
       const marker = FLOW_DIR_MARKERS.find((m) => name.endsWith(m));
       if (marker) {
-        await collectFlowDir(childAbs, childRel, marker, out);
+        await collectFlowDir(childAbs, childRel, marker, realRoot, out);
         continue;
       }
       await walk(childAbs, childRel, realRoot, out);
