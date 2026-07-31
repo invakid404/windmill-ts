@@ -355,27 +355,34 @@ test("the cache file is versioned as resource-types-v1.json", () => {
 
 // A virtual filesystem where directory creation and lstat attributes are
 // scriptable, so a hostile creation interleaved into the resolution→use gap can
-// be simulated (not just pre-existing state).
+// be simulated (not just pre-existing state). It records the exact mode each
+// mkdir requests and counts lstat calls so the security properties are locked.
 const ME = 1000;
-const makeSecureDeps = ({ preexisting = {}, uid = ME } = {}) => {
+const makeSecureDeps = ({ preexisting = {}, uid = ME, getuid } = {}) => {
   const nodes = new Map(Object.entries(preexisting)); // path -> lstat-like attrs
   const created = [];
+  const modes = []; // the mode requested for each mkdir, in order
+  const stats = { lstatCalls: 0 };
   const deps = {
-    mkdir(path) {
+    mkdir(path, mode) {
+      modes.push(mode);
       if (nodes.has(path)) {
         const err = new Error("EEXIST: file already exists");
         err.code = "EEXIST";
         throw err;
       }
       created.push(path);
+      // Record the node with the *requested* mode, so a production regression to
+      // a permissive requested mode would be observable, not masked.
       nodes.set(path, {
         isSymbolicLink: false,
         isDirectory: true,
         uid,
-        mode: 0o700,
+        mode,
       });
     },
     lstat(path) {
+      stats.lstatCalls++;
       const st = nodes.get(path);
       if (!st) {
         const err = new Error("ENOENT: no such file or directory");
@@ -384,18 +391,20 @@ const makeSecureDeps = ({ preexisting = {}, uid = ME } = {}) => {
       }
       return st;
     },
-    getuid: () => uid,
+    getuid: getuid ?? (() => uid),
   };
-  return { deps, created, nodes };
+  return { deps, created, modes, stats, nodes };
 };
 
 const TMP_ROOT = "/tmp/windmill-ts";
 const TMP_CHILD = "/tmp/windmill-ts/abc123";
 
-test("both temp components absent → created privately (T2-01)", () => {
-  const { deps, created } = makeSecureDeps();
+test("both temp components absent → created privately at 0700 (T2-01/T3-04)", () => {
+  const { deps, created, modes } = makeSecureDeps();
   assert.equal(ensureSecureTempDir(TMP_CHILD, deps), true);
   assert.deepEqual(created, [TMP_ROOT, TMP_CHILD]);
+  // Both components are requested with mode 0o700, not merely recorded as such.
+  assert.deepEqual(modes, [0o700, 0o700]);
 });
 
 test("a hostile dir created in the resolution→use gap is caught (T2-01 race)", () => {
@@ -436,7 +445,8 @@ test("a pre-existing private dir owned by us is safely reused (T2-01)", () => {
   assert.deepEqual(created, []); // nothing (re)created
 });
 
-test("ensureSecurePrivateDir refuses a non-EEXIST mkdir failure (T2-01)", () => {
+test("ensureSecurePrivateDir refuses a non-EEXIST mkdir failure without lstat (T2-01/T3-04)", () => {
+  let lstatCalls = 0;
   const deps = {
     mkdir() {
       const err = new Error("EACCES: permission denied");
@@ -444,9 +454,38 @@ test("ensureSecurePrivateDir refuses a non-EEXIST mkdir failure (T2-01)", () => 
       throw err;
     },
     lstat() {
+      lstatCalls++;
       throw new Error("should not be reached");
     },
     getuid: () => ME,
   };
   assert.equal(ensureSecurePrivateDir("/tmp/windmill-ts", deps), false);
+  // A non-EEXIST mkdir failure must fail closed without probing the path.
+  assert.equal(lstatCalls, 0);
+});
+
+test("an existing real dir is reused when getuid() is undefined (Windows) (T3-01)", () => {
+  // Windows-like: no uid, non-POSIX mode bits. Fix round 2 rejected such a
+  // reused directory (it only gated the UID check on getuid), silently disabling
+  // persistence after the first run. Both components must now be accepted.
+  const winDir = { isSymbolicLink: false, isDirectory: true, uid: 0, mode: 0o777 };
+  const { deps, created } = makeSecureDeps({
+    getuid: () => undefined,
+    preexisting: { [TMP_ROOT]: winDir, [TMP_CHILD]: winDir },
+  });
+  assert.equal(ensureSecureTempDir(TMP_CHILD, deps), true);
+  assert.deepEqual(created, []); // reused, not recreated
+});
+
+test("symlink/non-directory temp components are still rejected when getuid() is undefined (T3-01)", () => {
+  for (const bad of [
+    { isSymbolicLink: true, isDirectory: false, uid: 0, mode: 0o777 }, // symlink
+    { isSymbolicLink: false, isDirectory: false, uid: 0, mode: 0o777 }, // not a dir
+  ]) {
+    const { deps } = makeSecureDeps({
+      getuid: () => undefined,
+      preexisting: { [TMP_ROOT]: bad },
+    });
+    assert.equal(ensureSecureTempDir(TMP_CHILD, deps), false);
+  }
 });

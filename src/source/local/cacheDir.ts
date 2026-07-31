@@ -271,12 +271,16 @@ export const ensureSecurePrivateDir = (
       if (st.isSymbolicLink || !st.isDirectory) {
         return false;
       }
+      // POSIX ownership/mode privacy applies only where uids are meaningful.
+      // On Windows (no getuid) the mode bits are not a trustworthy expression of
+      // POSIX privacy, so — matching isPrivateDir() — gate BOTH checks on getuid
+      // and otherwise accept the existing real directory under the platform's
+      // per-user temp model. (An existing dir owned by us is the norm on reuse.)
       const uid = deps.getuid();
-      if (uid != null && st.uid !== uid) {
-        return false;
-      }
-      if ((st.mode & 0o077) !== 0) {
-        return false;
+      if (uid != null) {
+        if (st.uid !== uid || (st.mode & 0o077) !== 0) {
+          return false;
+        }
       }
       return true;
     } catch {

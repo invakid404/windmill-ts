@@ -242,13 +242,15 @@ export const composeResourceTypes = async (
   let cacheDirPath = resolution.dir;
   if (resolution.kind === "temp" && cacheDirPath != null) {
     if (!ensureSecureTempDir(cacheDirPath, defaultSecureDirDeps())) {
-      if (verbose) {
-        logDiagnostic(
-          chalk.yellow(
-            `windmill-ts: refusing unsafe temp cache directory ${cacheDirPath}; continuing without a persistent cache`,
-          ),
-        );
-      }
+      // A refused temp path is a security-relevant degraded path (persistence is
+      // lost, which can make a later offline run fail), so warn unconditionally —
+      // like the stale-fallback and persist-failure warnings. Routine cache-path
+      // diagnostics stay under --verbose.
+      logDiagnostic(
+        chalk.yellow(
+          `⚠️ windmill-ts: refusing unsafe temp cache directory ${cacheDirPath}; continuing without a persistent cache`,
+        ),
+      );
       cacheDirPath = null;
     }
   }

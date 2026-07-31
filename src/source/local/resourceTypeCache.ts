@@ -176,8 +176,9 @@ export const writeCacheIfChanged = async (
 
   // The temp fallback chain is pre-created 0700 by ensureSecureTempDir; other
   // kinds live in user-owned locations. A recursive mkdir is a no-op for the
-  // former and safe for the latter.
-  await mkdir(dir, { recursive: true });
+  // former and safe for the latter. Request 0o700 as defense in depth so any
+  // component recreated after benign cleanup keeps the privacy invariant.
+  await mkdir(dir, { recursive: true, mode: 0o700 });
   const finalPath = cacheFilePath(dir);
   // A random, exclusively-created (`wx`) temp name avoids same-process collisions
   // between concurrent writers; the atomic rename keeps last-writer-wins across
