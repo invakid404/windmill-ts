@@ -36,6 +36,9 @@ importers:
       log-update:
         specifier: 7.2.0
         version: 7.2.0
+      minimatch:
+        specifier: 10.2.2
+        version: 10.2.2
       p-queue:
         specifier: 9.1.0
         version: 9.1.0
