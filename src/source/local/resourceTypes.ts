@@ -9,6 +9,8 @@ import { compareStrings } from "../resources.js";
 import { describeParseLocation } from "./parsing.js";
 import {
   defaultCacheDirDeps,
+  defaultSecureDirDeps,
+  ensureSecureTempDir,
   resolveCacheDir,
 } from "./cacheDir.js";
 import {
@@ -232,15 +234,34 @@ export const composeResourceTypes = async (
     { override: cacheDir },
     defaultCacheDirDeps(),
   );
+
+  // The shared temp fallback lives under a world-writable /tmp. Atomically
+  // create+verify its private (0700, current-user-owned) chain BEFORE any cache
+  // read or write, so a hostile directory created in the resolution→use gap is
+  // caught (mkdir EEXIST → verification fails). Refuse the temp cache on failure.
+  let cacheDirPath = resolution.dir;
+  if (resolution.kind === "temp" && cacheDirPath != null) {
+    if (!ensureSecureTempDir(cacheDirPath, defaultSecureDirDeps())) {
+      if (verbose) {
+        logDiagnostic(
+          chalk.yellow(
+            `windmill-ts: refusing unsafe temp cache directory ${cacheDirPath}; continuing without a persistent cache`,
+          ),
+        );
+      }
+      cacheDirPath = null;
+    }
+  }
+
   if (verbose) {
     logDiagnostic(
       chalk.dim(
-        `windmill-ts: cache directory ${resolution.dir ?? "(none)"} [${resolution.kind}]`,
+        `windmill-ts: cache directory ${cacheDirPath ?? "(none)"} [${cacheDirPath ? resolution.kind : "none"}]`,
       ),
     );
   }
-  const cacheState: CacheReadResult = resolution.dir
-    ? await readCache(resolution.dir)
+  const cacheState: CacheReadResult = cacheDirPath
+    ? await readCache(cacheDirPath)
     : { status: "missing" };
 
   const failIncomplete = (
@@ -261,7 +282,7 @@ export const composeResourceTypes = async (
         stillMissing,
         cacheState.status === "ok"
           ? `Offline mode: cached Hub catalog (${shortHash(cacheState.hash)}, captured ${cacheState.cache.capturedAt}) does not define them. Provide them via a committed source.resourceTypes.file catalog.`
-          : `Offline mode: no usable Hub cache available (${describeCacheState(cacheState, resolution.dir)}). Provide them via a committed source.resourceTypes.file catalog or run online once.`,
+          : `Offline mode: no usable Hub cache available (${describeCacheState(cacheState, cacheDirPath)}). Provide them via a committed source.resourceTypes.file catalog or run online once.`,
       );
     }
     return sortByName(merged);
@@ -282,7 +303,8 @@ export const composeResourceTypes = async (
           `⚠️ Hub refresh failed (${reason}); using cached catalog from ${cacheState.cache.capturedAt} (${shortHash(cacheState.hash)}) at ${HUB_ENDPOINT}`,
         ),
       );
-      return merged;
+      // Satisfy the D9 sorted-provider contract on this path too.
+      return sortByName(merged);
     }
     return failIncomplete(
       stillMissing,
@@ -298,27 +320,27 @@ export const composeResourceTypes = async (
     );
   }
 
-  if (resolution.dir) {
+  if (cacheDirPath) {
     try {
       const capturedAt = new Date().toISOString();
+      // The temp chain is already securely created (0700, ours) above; other
+      // kinds live in user-owned locations, so a plain recursive mkdir is safe.
       const writeResult = await writeCacheIfChanged(
-        resolution.dir,
+        cacheDirPath,
         fetched.types,
         capturedAt,
-        // The shared temp fallback root must be created private (0700).
-        resolution.kind === "temp" ? 0o700 : undefined,
       );
       if (writeResult.written) {
         if (writeResult.previousHash != null) {
           logDiagnostic(
             chalk.yellow(
-              `windmill-ts: Hub catalog changed ${shortHash(writeResult.previousHash)} → ${shortHash(writeResult.hash)}; cache updated at ${resolution.dir}`,
+              `windmill-ts: Hub catalog changed ${shortHash(writeResult.previousHash)} → ${shortHash(writeResult.hash)}; cache updated at ${cacheDirPath}`,
             ),
           );
         } else if (verbose) {
           logDiagnostic(
             chalk.dim(
-              `windmill-ts: captured Hub catalog (${shortHash(writeResult.hash)}) at ${resolution.dir}`,
+              `windmill-ts: captured Hub catalog (${shortHash(writeResult.hash)}) at ${cacheDirPath}`,
             ),
           );
         }
@@ -329,7 +351,7 @@ export const composeResourceTypes = async (
       // the fresh response still drives this generation.
       logDiagnostic(
         chalk.yellow(
-          `⚠️ Failed to persist Hub cache at ${resolution.dir} (${reason}); continuing without a cache write`,
+          `⚠️ Failed to persist Hub cache at ${cacheDirPath} (${reason}); continuing without a cache write`,
         ),
       );
     }

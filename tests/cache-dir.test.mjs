@@ -5,6 +5,8 @@ import test from "node:test";
 
 import {
   CACHE_FILE_NAME,
+  ensureSecurePrivateDir,
+  ensureSecureTempDir,
   resolveCacheDir,
 } from "../dist/src/source/local/cacheDir.js";
 
@@ -347,4 +349,104 @@ test("an explicit writable override wins; unwritable/regular-file overrides erro
 
 test("the cache file is versioned as resource-types-v1.json", () => {
   assert.equal(CACHE_FILE_NAME, "resource-types-v1.json");
+});
+
+// --- T2-01: atomic secure temp-dir creation closes the check→create race ---
+
+// A virtual filesystem where directory creation and lstat attributes are
+// scriptable, so a hostile creation interleaved into the resolution→use gap can
+// be simulated (not just pre-existing state).
+const ME = 1000;
+const makeSecureDeps = ({ preexisting = {}, uid = ME } = {}) => {
+  const nodes = new Map(Object.entries(preexisting)); // path -> lstat-like attrs
+  const created = [];
+  const deps = {
+    mkdir(path) {
+      if (nodes.has(path)) {
+        const err = new Error("EEXIST: file already exists");
+        err.code = "EEXIST";
+        throw err;
+      }
+      created.push(path);
+      nodes.set(path, {
+        isSymbolicLink: false,
+        isDirectory: true,
+        uid,
+        mode: 0o700,
+      });
+    },
+    lstat(path) {
+      const st = nodes.get(path);
+      if (!st) {
+        const err = new Error("ENOENT: no such file or directory");
+        err.code = "ENOENT";
+        throw err;
+      }
+      return st;
+    },
+    getuid: () => uid,
+  };
+  return { deps, created, nodes };
+};
+
+const TMP_ROOT = "/tmp/windmill-ts";
+const TMP_CHILD = "/tmp/windmill-ts/abc123";
+
+test("both temp components absent → created privately (T2-01)", () => {
+  const { deps, created } = makeSecureDeps();
+  assert.equal(ensureSecureTempDir(TMP_CHILD, deps), true);
+  assert.deepEqual(created, [TMP_ROOT, TMP_CHILD]);
+});
+
+test("a hostile dir created in the resolution→use gap is caught (T2-01 race)", () => {
+  // At resolution the temp root was absent; an attacker wins the gap and
+  // pre-creates a hostile shared root before our mkdir. mkdir → EEXIST, then
+  // verification rejects it.
+  for (const hostile of [
+    { isSymbolicLink: true, isDirectory: false, uid: ME, mode: 0o700 }, // symlink
+    { isSymbolicLink: false, isDirectory: true, uid: 31337, mode: 0o700 }, // other-owned
+    { isSymbolicLink: false, isDirectory: true, uid: ME, mode: 0o777 }, // world-writable
+    { isSymbolicLink: false, isDirectory: false, uid: ME, mode: 0o700 }, // not a dir
+  ]) {
+    const { deps, created } = makeSecureDeps({
+      preexisting: { [TMP_ROOT]: hostile },
+    });
+    assert.equal(ensureSecureTempDir(TMP_CHILD, deps), false);
+    // We must not have created the child under a hostile root.
+    assert.equal(created.includes(TMP_CHILD), false);
+  }
+});
+
+test("a hostile child under a safe root is caught (T2-01)", () => {
+  const { deps } = makeSecureDeps({
+    preexisting: {
+      [TMP_ROOT]: { isSymbolicLink: false, isDirectory: true, uid: ME, mode: 0o700 },
+      [TMP_CHILD]: { isSymbolicLink: true, isDirectory: false, uid: ME, mode: 0o700 },
+    },
+  });
+  assert.equal(ensureSecureTempDir(TMP_CHILD, deps), false);
+});
+
+test("a pre-existing private dir owned by us is safely reused (T2-01)", () => {
+  const priv = { isSymbolicLink: false, isDirectory: true, uid: ME, mode: 0o700 };
+  const { deps, created } = makeSecureDeps({
+    preexisting: { [TMP_ROOT]: priv, [TMP_CHILD]: priv },
+  });
+  assert.equal(ensureSecureTempDir(TMP_CHILD, deps), true);
+  assert.deepEqual(created, []); // nothing (re)created
+});
+
+test("ensureSecurePrivateDir refuses a non-EEXIST mkdir failure (T2-01)", () => {
+  const deps = {
+    mkdir() {
+      const err = new Error("EACCES: permission denied");
+      err.code = "EACCES";
+      throw err;
+    },
+    lstat() {
+      throw new Error("should not be reached");
+    },
+    getuid: () => ME,
+  };
+  assert.equal(ensureSecurePrivateDir("/tmp/windmill-ts", deps), false);
 });

@@ -745,3 +745,89 @@ test("the composed resource-type map is name-sorted from a shuffled composition 
     assert.deepEqual(new Set(keys), new Set(["alpha", "beta", "mid", "zeta"]));
   });
 });
+
+// --- T2-03: the stale-cache refresh-failure fallback is also name-sorted --
+
+test("the stale-cache refresh-failure fallback is name-sorted from shuffled layers (T2-03)", async () => {
+  await withCacheDir(async (cacheDir) => {
+    // Seed a valid cache holding the two types only the Hub would provide, in
+    // deliberately non-alphabetical order.
+    await writeCacheIfChanged(
+      cacheDir,
+      [cachedType("wcache"), cachedType("bcache")],
+      "2026-01-01T00:00:00.000Z",
+    );
+
+    // Shuffled catalog + local names too, so mergeLayers' insertion order
+    // (hub → catalog → local) is not alphabetical.
+    const catalogFile = join(cacheDir, "catalog.json");
+    await writeFile(
+      catalogFile,
+      JSON.stringify([
+        { name: "zcat", schema: rtSchema("zcat") },
+        { name: "acat", schema: rtSchema("acat") },
+      ]),
+    );
+    const localDefs = new Map([
+      ["mlocal", { name: "mlocal", schema: rtSchema("mlocal"), format_extension: null }],
+    ]);
+
+    const { result } = await captureStderr(() =>
+      composeResourceTypes(
+        baseParams({
+          localDefs,
+          usedNames: new Set(["wcache", "bcache", "zcat", "acat", "mlocal"]),
+          resourceTypesFile: catalogFile,
+          cacheDir,
+          // Force the stale-cache fallback path.
+          fetchImpl: async () => {
+            throw new Error("network down");
+          },
+        }),
+      ),
+    );
+
+    const keys = [...result.keys()];
+    assert.deepEqual(keys, [...keys].sort());
+    assert.deepEqual(
+      new Set(keys),
+      new Set(["acat", "bcache", "mlocal", "wcache", "zcat"]),
+    );
+  });
+});
+
+// --- T2-04: fatal (non-retryable) classification is tag-based, not message --
+
+test("a normalized-shape failure is not retried (T2-04)", async () => {
+  let calls = 0;
+  await assert.rejects(
+    () =>
+      fetchHubResourceTypes({
+        fetchImpl: async () => {
+          calls++;
+          return jsonResponse({ not: "an array" }); // valid JSON, wrong shape
+        },
+        retries: 3,
+        minTimeoutMs: 1,
+      }),
+    /Unexpected Hub response shape/,
+  );
+  assert.equal(calls, 1);
+});
+
+test("a duplicate-name response is not retried (T2-04)", async () => {
+  let calls = 0;
+  await assert.rejects(
+    () =>
+      fetchHubResourceTypes({
+        fetchImpl: async () => {
+          calls++;
+          return jsonResponse([hubRecord("dup"), hubRecord("dup")]);
+        },
+        retries: 3,
+        minTimeoutMs: 1,
+      }),
+    /duplicate resource type name/,
+  );
+  assert.equal(calls, 1);
+});

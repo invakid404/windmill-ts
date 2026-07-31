@@ -158,8 +158,6 @@ export const writeCacheIfChanged = async (
   dir: string,
   types: readonly HubResourceType[],
   capturedAt: string,
-  /** Mode for directories created here (e.g. 0o700 for the shared temp root). */
-  dirMode?: number,
 ): Promise<CacheWriteResult> => {
   const hash = hashResourceTypes(types);
 
@@ -176,7 +174,10 @@ export const writeCacheIfChanged = async (
     resourceTypes: sortByName(types),
   };
 
-  await mkdir(dir, { recursive: true, ...(dirMode != null && { mode: dirMode }) });
+  // The temp fallback chain is pre-created 0700 by ensureSecureTempDir; other
+  // kinds live in user-owned locations. A recursive mkdir is a no-op for the
+  // former and safe for the latter.
+  await mkdir(dir, { recursive: true });
   const finalPath = cacheFilePath(dir);
   // A random, exclusively-created (`wx`) temp name avoids same-process collisions
   // between concurrent writers; the atomic rename keeps last-writer-wins across

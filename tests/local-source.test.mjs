@@ -389,24 +389,27 @@ test("absolute and .. escape !inline targets are rejected", async () => {
 
 test("a recognized metadata symlink escaping the root is rejected", async () => {
   const outside = await mkdtemp(join(tmpdir(), "wmts-outside-"));
-  await writeFile(
-    join(outside, "evil.script.yaml"),
-    "schema: { type: object, properties: {} }\n",
-  );
-  await withTree(
-    { "f/demo/keep.script.yaml": "schema: { type: object, properties: {} }\n" },
-    async (dir) => {
-      await symlink(
-        join(outside, "evil.script.yaml"),
-        join(dir, "f/demo/link.script.yaml"),
-      );
-      await assert.rejects(
-        () => createLocalSource({ folder: dir, ...OFFLINE }),
-        /symlink that escapes the source root/,
-      );
-    },
-  );
-  await rm(outside, { force: true, recursive: true });
+  try {
+    await writeFile(
+      join(outside, "evil.script.yaml"),
+      "schema: { type: object, properties: {} }\n",
+    );
+    await withTree(
+      { "f/demo/keep.script.yaml": "schema: { type: object, properties: {} }\n" },
+      async (dir) => {
+        await symlink(
+          join(outside, "evil.script.yaml"),
+          join(dir, "f/demo/link.script.yaml"),
+        );
+        await assert.rejects(
+          () => createLocalSource({ folder: dir, ...OFFLINE }),
+          /symlink that escapes the source root/,
+        );
+      },
+    );
+  } finally {
+    await rm(outside, { force: true, recursive: true });
+  }
 });
 
 test("an unresolved used resource type fails offline with a sorted list", async () => {
@@ -505,25 +508,28 @@ test("a malformed JSON resource never leaks its source into the error (B1)", asy
 
 test("a flow metadata symlink escaping the root is rejected (B2)", async () => {
   const outside = await mkdtemp(join(tmpdir(), "wmts-flow-outside-"));
-  await writeFile(
-    join(outside, "evil-flow.yaml"),
-    "schema: { type: object, properties: {} }\n",
-  );
-  await withTree(
-    { "f/demo/keep.script.yaml": "schema: { type: object, properties: {} }\n" },
-    async (dir) => {
-      await mkdir(join(dir, "f/demo/escape.flow"), { recursive: true });
-      await symlink(
-        join(outside, "evil-flow.yaml"),
-        join(dir, "f/demo/escape.flow/flow.yaml"),
-      );
-      await assert.rejects(
-        () => createLocalSource({ folder: dir, ...OFFLINE }),
-        /symlink that escapes the source root/,
-      );
-    },
-  );
-  await rm(outside, { force: true, recursive: true });
+  try {
+    await writeFile(
+      join(outside, "evil-flow.yaml"),
+      "schema: { type: object, properties: {} }\n",
+    );
+    await withTree(
+      { "f/demo/keep.script.yaml": "schema: { type: object, properties: {} }\n" },
+      async (dir) => {
+        await mkdir(join(dir, "f/demo/escape.flow"), { recursive: true });
+        await symlink(
+          join(outside, "evil-flow.yaml"),
+          join(dir, "f/demo/escape.flow/flow.yaml"),
+        );
+        await assert.rejects(
+          () => createLocalSource({ folder: dir, ...OFFLINE }),
+          /symlink that escapes the source root/,
+        );
+      },
+    );
+  } finally {
+    await rm(outside, { force: true, recursive: true });
+  }
 });
 
 test("a contained flow metadata symlink is followed (B2)", async () => {

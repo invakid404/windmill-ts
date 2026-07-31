@@ -5,6 +5,18 @@ import { compareStrings } from "../resources.js";
 /** The fixed, unauthenticated public schema-bearing endpoint (v1). */
 export const HUB_ENDPOINT = "https://hub.windmill.dev/resource_types/list";
 
+/**
+ * A Hub failure that must NOT be retried: an HTTP status error or a
+ * normalized-response-shape failure. Retry fatality is decided by this marker
+ * (via `instanceof`), not by matching error-message wording, so rewording a
+ * message can never silently change retry behavior. External `message` text is
+ * unchanged.
+ */
+export class HubFatalError extends Error {
+  override readonly name = "HubFatalError";
+  readonly fatal = true as const;
+}
+
 export type HubResourceType = {
   name: string;
   schema: JSONSchema;
@@ -41,7 +53,7 @@ const HubResponseSchema = z.array(HubRecordSchema);
 export const normalizeHubResponse = (json: unknown): HubNormalizeResult => {
   const parsed = HubResponseSchema.safeParse(json);
   if (!parsed.success) {
-    throw new Error(
+    throw new HubFatalError(
       `Unexpected Hub response shape: ${parsed.error.issues[0]?.message ?? "not a resource-type list"}`,
     );
   }
@@ -52,7 +64,7 @@ export const normalizeHubResponse = (json: unknown): HubNormalizeResult => {
   const seen = new Set<string>();
   for (const record of parsed.data) {
     if (seen.has(record.name)) {
-      throw new Error(
+      throw new HubFatalError(
         `Hub response contains duplicate resource type name ${JSON.stringify(record.name)}`,
       );
     }
@@ -176,7 +188,7 @@ export const fetchHubResourceTypes = async (
           await sleep(backoff);
           continue;
         }
-        throw new Error(
+        throw new HubFatalError(
           `Hub request failed: HTTP ${response.status} ${response.statusText}`.trim(),
         );
       }
@@ -185,14 +197,11 @@ export const fetchHubResourceTypes = async (
       return normalizeHubResponse(json);
     } catch (err) {
       lastError = err;
-      // A non-retryable HTTP error / normalization error should surface as-is.
-      const message = err instanceof Error ? err.message : String(err);
-      const isHttpError = message.startsWith("Hub request failed: HTTP");
-      const isShapeError =
-        message.startsWith("Unexpected Hub response shape") ||
-        message.startsWith("Hub response contains duplicate");
-      if (isHttpError || isShapeError || attempt >= retries) {
-        throw err instanceof Error ? err : new Error(message);
+      // Fatality is structural (a HubFatalError marker), not message-based, so
+      // HTTP-status and response-shape failures are never retried. Everything
+      // else (network errors, timeouts/aborts, malformed JSON) is transient.
+      if (err instanceof HubFatalError || attempt >= retries) {
+        throw err instanceof Error ? err : new Error(String(err));
       }
       const backoff = Math.min(maxTimeoutMs, minTimeoutMs * 2 ** attempt);
       attempt++;

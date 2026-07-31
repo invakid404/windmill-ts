@@ -3,6 +3,7 @@ import {
   constants,
   existsSync,
   lstatSync,
+  mkdirSync,
   readFileSync,
   realpathSync,
   statSync,
@@ -223,6 +224,95 @@ const nearestExisting = (p: string): string | undefined => {
   }
   return undefined;
 };
+
+/**
+ * Filesystem operations for the atomic secure-directory creation used by the
+ * shared temp fallback. Injectable so the create/verify race can be tested with
+ * a hostile creation interleaved into the check→use gap.
+ */
+export type SecureDirDeps = {
+  /** Create `path` non-recursively with `mode`; throws `{code:'EEXIST'}` if it exists. */
+  mkdir(path: string, mode: number): void;
+  /** lstat (does NOT follow symlinks); throws if the path is missing. */
+  lstat(path: string): {
+    isSymbolicLink: boolean;
+    isDirectory: boolean;
+    uid: number;
+    mode: number;
+  };
+  /** Current effective uid, or undefined where unavailable (e.g. Windows). */
+  getuid(): number | undefined;
+};
+
+/**
+ * Atomically create `dir` (non-recursively) with mode 0700. If it already
+ * exists (`EEXIST`), verify it is a non-symlink directory owned by the current
+ * user with no group/other permission bits. This closes the check→create TOCTOU
+ * race: an attacker who wins the gap and pre-creates a hostile directory is
+ * caught here (mkdir yields EEXIST, then verification fails). Returns true iff
+ * the directory now exists and is private to us.
+ */
+export const ensureSecurePrivateDir = (
+  dir: string,
+  deps: SecureDirDeps,
+): boolean => {
+  try {
+    deps.mkdir(dir, 0o700);
+    // We created it exclusively, so it is ours and private by construction.
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
+      return false;
+    }
+    // Someone else already created it (possibly in the race window) — verify it
+    // is a private directory owned by us before trusting it.
+    try {
+      const st = deps.lstat(dir);
+      if (st.isSymbolicLink || !st.isDirectory) {
+        return false;
+      }
+      const uid = deps.getuid();
+      if (uid != null && st.uid !== uid) {
+        return false;
+      }
+      if ((st.mode & 0o077) !== 0) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+/**
+ * Securely create/verify the full shared-temp chain (`<tmp>/windmill-ts` then
+ * the per-project child) so both components are private-to-us before any cache
+ * read or write. Returns true iff the whole chain is now safe.
+ */
+export const ensureSecureTempDir = (
+  tempDir: string,
+  deps: SecureDirDeps,
+): boolean =>
+  ensureSecurePrivateDir(nodePath.dirname(tempDir), deps) &&
+  ensureSecurePrivateDir(tempDir, deps);
+
+/** Real filesystem-backed {@link SecureDirDeps}. */
+export const defaultSecureDirDeps = (): SecureDirDeps => ({
+  mkdir: (path, mode) => {
+    mkdirSync(path, { mode });
+  },
+  lstat: (path) => {
+    const st = lstatSync(path);
+    return {
+      isSymbolicLink: st.isSymbolicLink(),
+      isDirectory: st.isDirectory(),
+      uid: st.uid,
+      mode: st.mode,
+    };
+  },
+  getuid: () => process.getuid?.(),
+});
 
 /** Real filesystem/OS-backed deps for production use. */
 export const defaultCacheDirDeps = (
