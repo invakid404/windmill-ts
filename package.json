@@ -29,7 +29,7 @@
     "log-update": "7.2.0",
     "minimatch": "10.2.6",
     "p-queue": "9.3.3",
-    "p-retry": "8.0.0",
+    "p-retry": "8.0.1",
     "to-valid-identifier": "1.0.0",
     "ts-morph": "28.0.0",
     "windmill-client": "1.801.0",
