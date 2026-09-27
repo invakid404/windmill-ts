@@ -19,8 +19,8 @@ importers:
         specifier: 0.3.1
         version: 0.3.1
       chalk:
-        specifier: 6.0.0
-        version: 6.0.0
+        specifier: 6.0.1
+        version: 6.0.1
       cli-spinners:
         specifier: 3.4.0
         version: 3.4.0
@@ -331,8 +331,8 @@ packages:
     resolution: {integrity: sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==}
     engines: {node: 20 || >=22}
 
-  chalk@6.0.0:
-    resolution: {integrity: sha512-2uNTXIuTTxk7ciZgAU1BQcgnchcG0xXnrs6jzkQfj9SsRa9M2s5zE8WT96hS6KmG4MzWHSrvH43DF1m4XRkrFg==}
+  chalk@6.0.1:
+    resolution: {integrity: sha512-/Ce6KNm3vIbWdMlNna6RVIZ/ICQxnJxCicet5LBKK9ZffBkqzDw0xh9EiKSljdRtiIQ1S1z4YgcscUUGzNCWrA==}
     engines: {node: '>=22'}
 
   cli-cursor@5.0.0:
@@ -678,7 +678,7 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
-  chalk@6.0.0: {}
+  chalk@6.0.1: {}
 
   cli-cursor@5.0.0:
     dependencies:
