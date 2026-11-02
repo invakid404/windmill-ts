@@ -10,25 +10,25 @@ const mapName = "flows";
 const getPreamble = (runtimeCore: boolean) =>
   [
     dedent`
-  type RunFlowAsyncOptions = {
-    scheduledFor?: Date | null;
-    detached?: boolean;
-    /** Override the worker tag for this run */
-    tag?: string;
-  };
+      type RunFlowAsyncOptions = {
+        scheduledFor?: Date | null;
+        detached?: boolean;
+        /** Override the worker tag for this run */
+        tag?: string;
+      };
 
-  type RunFlowOptions = RunFlowAsyncOptions & {
-    /** Log status messages while waiting for the job to complete */
-    verbose?: boolean;
-  };
+      type RunFlowOptions = RunFlowAsyncOptions & {
+        /** Log status messages while waiting for the job to complete */
+        verbose?: boolean;
+      };
 
-  // NOTE: We use raw fetch here because JobService.runFlowByPath doesn't
-  // expose the root_job parameter, which is needed for proper job hierarchy tracking.
-  export const runFlowAsync = async <Path extends keyof typeof ${mapName}>(
-    flowPath: Path,
-    args: z.input<(typeof ${mapName})[Path]>,
-    options?: RunFlowAsyncOptions,
-  ) => {
+      // NOTE: We use raw fetch here because JobService.runFlowByPath doesn't
+      // expose the root_job parameter, which is needed for proper job hierarchy tracking.
+      export const runFlowAsync = async <Path extends keyof typeof ${mapName}>(
+        flowPath: Path,
+        args: z.input<(typeof ${mapName})[Path]>,
+        options?: RunFlowAsyncOptions,
+      ) => {
     `,
     indent(
       runtimeCore
@@ -42,27 +42,27 @@ const getPreamble = (runtimeCore: boolean) =>
           }),
     ),
     dedent`
-  };
+      };
 
-  export const runFlow = async <Path extends keyof typeof ${mapName}>(
-    flowPath: Path,
-    args: z.input<(typeof ${mapName})[Path]>,
-    options?: RunFlowOptions,
-  ) => {
-    const { verbose, ...asyncOptions } = options ?? {};
-    const jobId = await runFlowAsync(flowPath, args, asyncOptions);
-    return wmill.waitJob(jobId, verbose);
-  };
+      export const runFlow = async <Path extends keyof typeof ${mapName}>(
+        flowPath: Path,
+        args: z.input<(typeof ${mapName})[Path]>,
+        options?: RunFlowOptions,
+      ) => {
+        const { verbose, ...asyncOptions } = options ?? {};
+        const jobId = await runFlowAsync(flowPath, args, asyncOptions);
+        return wmill.waitJob(jobId, verbose);
+      };
 
-  export const getFlowArgsSchema = <Path extends keyof typeof ${mapName}>(
-    flowPath: Path
-  ) => {
-    return ${mapName}[flowPath];
-  }
+      export const getFlowArgsSchema = <Path extends keyof typeof ${mapName}>(
+        flowPath: Path
+      ) => {
+        return ${mapName}[flowPath];
+      }
 
-  export type FlowPath = keyof typeof ${mapName};
+      export type FlowPath = keyof typeof ${mapName};
 
-  export type FlowArgs<Path extends FlowPath> = z.input<(typeof ${mapName})[Path]>;
+      export type FlowArgs<Path extends FlowPath> = z.input<(typeof ${mapName})[Path]>;
     `,
   ].join("\n");
 

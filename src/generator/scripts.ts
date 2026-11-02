@@ -10,25 +10,25 @@ const mapName = "scripts";
 const getPreamble = (runtimeCore: boolean) =>
   [
     dedent`
-  type RunScriptAsyncOptions = {
-    scheduledFor?: Date | null;
-    detached?: boolean;
-    /** Override the worker tag for this run */
-    tag?: string;
-  };
+      type RunScriptAsyncOptions = {
+        scheduledFor?: Date | null;
+        detached?: boolean;
+        /** Override the worker tag for this run */
+        tag?: string;
+      };
 
-  type RunScriptOptions = RunScriptAsyncOptions & {
-    /** Log status messages while waiting for the job to complete */
-    verbose?: boolean;
-  };
+      type RunScriptOptions = RunScriptAsyncOptions & {
+        /** Log status messages while waiting for the job to complete */
+        verbose?: boolean;
+      };
 
-  // NOTE: We use raw fetch here because JobService.runScriptByPath doesn't
-  // expose the root_job parameter, which is needed for proper job hierarchy tracking.
-  export const runScriptAsync = async <Path extends keyof typeof ${mapName}>(
-    scriptPath: Path,
-    args: z.input<(typeof ${mapName})[Path]>,
-    options?: RunScriptAsyncOptions,
-  ) => {
+      // NOTE: We use raw fetch here because JobService.runScriptByPath doesn't
+      // expose the root_job parameter, which is needed for proper job hierarchy tracking.
+      export const runScriptAsync = async <Path extends keyof typeof ${mapName}>(
+        scriptPath: Path,
+        args: z.input<(typeof ${mapName})[Path]>,
+        options?: RunScriptAsyncOptions,
+      ) => {
     `,
     indent(
       runtimeCore
@@ -42,27 +42,27 @@ const getPreamble = (runtimeCore: boolean) =>
           }),
     ),
     dedent`
-  };
+      };
 
-  export const runScript = async <Path extends keyof typeof ${mapName}>(
-    scriptPath: Path,
-    args: z.input<(typeof ${mapName})[Path]>,
-    options?: RunScriptOptions,
-  ) => {
-    const { verbose, ...asyncOptions } = options ?? {};
-    const jobId = await runScriptAsync(scriptPath, args, asyncOptions);
-    return wmill.waitJob(jobId, verbose);
-  };
+      export const runScript = async <Path extends keyof typeof ${mapName}>(
+        scriptPath: Path,
+        args: z.input<(typeof ${mapName})[Path]>,
+        options?: RunScriptOptions,
+      ) => {
+        const { verbose, ...asyncOptions } = options ?? {};
+        const jobId = await runScriptAsync(scriptPath, args, asyncOptions);
+        return wmill.waitJob(jobId, verbose);
+      };
 
-  export const getScriptArgsSchema = <Path extends keyof typeof ${mapName}>(
-    scriptPath: Path
-  ) => {
-    return ${mapName}[scriptPath];
-  };
+      export const getScriptArgsSchema = <Path extends keyof typeof ${mapName}>(
+        scriptPath: Path
+      ) => {
+        return ${mapName}[scriptPath];
+      };
 
-  export type ScriptPath = keyof typeof ${mapName};
+      export type ScriptPath = keyof typeof ${mapName};
 
-  export type ScriptArgs<Path extends ScriptPath> = z.input<(typeof ${mapName})[Path]>;
+      export type ScriptArgs<Path extends ScriptPath> = z.input<(typeof ${mapName})[Path]>;
     `,
   ].join("\n");
 
