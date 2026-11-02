@@ -212,18 +212,25 @@ test("output doesn't depend on the order the source lists things in", async () =
   assert.ok(forward.client.indexOf('"f/a/script"') < forward.client.indexOf('"f/b/script"'));
 });
 
-test("the runtime core needs a file output", async () => {
+test("the runtime core needs a file output of its own", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wmts-runtime-cli-"));
+  const cli = (output) =>
+    spawnSync(process.execPath, [CLI, "--from-folder", FIXTURE, "--offline", output], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+
   try {
     await writeFile(join(dir, "windmill-ts.yaml"), SPLIT_CONFIG);
-    const result = spawnSync(
-      process.execPath,
-      [CLI, "--from-folder", FIXTURE, "--offline", "-"],
-      { cwd: dir, encoding: "utf8" },
-    );
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /can't be stdout/);
-    assert.equal(result.stdout, "");
+    const toStdout = cli("-");
+    assert.notEqual(toStdout.status, 0);
+    assert.match(toStdout.stderr, /can't be stdout/);
+    assert.equal(toStdout.stdout, "");
+
+    await writeFile(join(dir, "windmill-ts.yaml"), SPLIT_CONFIG.replace("runtime.ts", "client.ts"));
+    const toItself = cli("client.ts");
+    assert.notEqual(toItself.status, 0);
+    assert.match(toItself.stderr, /can't be the client's own output/);
   } finally {
     await rm(dir, { force: true, recursive: true });
   }
