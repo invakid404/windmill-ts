@@ -124,16 +124,30 @@ program
       source = remoteSource;
     }
 
+    const outputPath = path.resolve(cwd, output);
+    const outputDir = isStdout ? cwd : path.dirname(outputPath);
+    const runtimePath = config.resources.runtime;
+    if (runtimePath != null && isStdout) {
+      throw new Error(
+        "resources.runtime generates a second file, so the output can't be stdout",
+      );
+    }
+    const runtimeOutputPath =
+      runtimePath == null ? undefined : path.resolve(outputDir, runtimePath);
+    if (runtimeOutputPath === outputPath) {
+      throw new Error("resources.runtime can't be the client's own output");
+    }
+
     const stream = isStdout ? process.stdout : fs.createWriteStream(output);
 
-    await generate(
-      stream,
-      isStdout ? cwd : path.dirname(path.resolve(cwd, output)),
-      {
-        spinners: !isStdout,
-        source,
-      },
-    );
+    await generate(stream, outputDir, {
+      spinners: !isStdout,
+      source,
+      runtimeOutput:
+        runtimeOutputPath == null
+          ? undefined
+          : fs.createWriteStream(runtimeOutputPath),
+    });
   });
 
 program.parse();

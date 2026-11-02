@@ -7,13 +7,13 @@ import {
   resourceReferencesSchemaName,
   resourceTypeSchemaName,
 } from "./resources.js";
-import { once } from "../utils/once.js";
 import dedent from "dedent";
 import type { Observer } from "./index.js";
 import { fixupZodSchema } from "../utils/fixupZodSchema.js";
+import { compareStrings } from "../source/resources.js";
 
 export const runWithBuffer = async <T,>(cb: () => T) => {
-  const { outputDir, resourceTypes, workspaceResources, source } =
+  const { outputDir, resourceTypes, workspaceResources, source, runtimeImport } =
     getContext()!;
 
   const buffer = new PassThrough({
@@ -23,7 +23,7 @@ export const runWithBuffer = async <T,>(cb: () => T) => {
   });
   const result = await run(
     buffer,
-    { outputDir, resourceTypes, workspaceResources, source },
+    { outputDir, resourceTypes, workspaceResources, source, runtimeImport },
     cb,
   );
 
@@ -54,11 +54,16 @@ export const generateSchemas = async ({
     const pathToSchemaMap = new Map<string, string>();
 
     observer.next("Fetching resources...");
+    const entries: { path: string; schema: JSONSchema }[] = [];
     for await (const { path, schema } of generator) {
-      if (schema == null) {
-        continue;
+      if (schema != null) {
+        entries.push({ path, schema });
       }
+    }
 
+    // NOTE: emitted in path order so that the output doesn't depend on the
+    //       order the source lists scripts and flows in
+    for (const { path, schema } of entries.toSorted((a, b) => compareStrings(a.path, b.path))) {
       const schemaName = toValidIdentifier(`${mapName}_${path}`);
       const zodSchema = schemaToZod(schema, { looseTopLevelObject: looseArgs });
 
@@ -188,11 +193,29 @@ export const schemaToZod = (
   return fixupZodSchema(result, { looseTopLevelObject });
 };
 
+/**
+ * Like `once`, but per generated file: deferred writes land in the file being
+ * generated, so a helper declared in one file has to be declared again in
+ * another one that needs it.
+ */
+const oncePerOutput = <T,>(fn: () => T) => {
+  const values = new WeakMap<object, T>();
+
+  return () => {
+    const key = getContext()!.deferWrite;
+    if (!values.has(key)) {
+      values.set(key, fn());
+    }
+
+    return values.get(key)!;
+  };
+};
+
 const resourceTypeToUnion = (resourceType: string) => {
   return `z.union([${resourceReferencesSchemaName(resourceType)}, ${resourceTypeSchemaName(resourceType)}.schema])`;
 };
 
-const base64FileZodSchema = once(() => {
+const base64FileZodSchema = oncePerOutput(() => {
   const { deferWrite } = getContext()!;
   const name = `$base64_file_type`;
 
@@ -219,7 +242,7 @@ const base64FileZodSchema = once(() => {
   return name;
 });
 
-const s3ObjectZodSchema = once(() => {
+const s3ObjectZodSchema = oncePerOutput(() => {
   const { deferWrite } = getContext()!;
   const name = `S3ObjectSchema`;
 

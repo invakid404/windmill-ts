@@ -212,6 +212,11 @@ resources:
     # Optional extension to append to the import (e.g., ".ts" or ".js")
     importExtension: ".js"
 
+  # Optional: also generate the runtime core as its own file, at this path
+  # relative to the output (see "Runtime core" below). The client imports it
+  # with this exact path, so give it the extension your imports use.
+  runtime: "./client_runtime.ts"
+
 # Script generation configuration
 scripts:
   # Whether to generate script-related code (default: true)
@@ -302,6 +307,29 @@ const flowResult = await runFlow("my/flow/path", {
 const resource = await getResource("my/resource/path");
 // TypeScript will infer the correct type based on the resource type
 ```
+
+`runScriptAsync` / `runFlowAsync` return the started job's id, and throw when
+Windmill refuses to start the job (a non-2xx response), with its status and body.
+
+### Runtime core
+
+With `resources.runtime` set, the generator writes a second file next to the
+client: the runtime core. It holds the resource resolver hook, the embedded
+resources and their schemas, the resource paths per resource type, and job
+starting, but none of the generated script, flow or resource registry. The
+client imports and re-exports it, so both share one resolver.
+
+Code that only needs this much can import the core instead of the client, so
+that a change to the registry (a new script, say) doesn't change it, or the
+bundles built from it. The core exports:
+
+- `getResource` / `getDefaultResource`, for the embedded resources only;
+- `getResourcePathsForType` / `isResourcePathOfType`;
+- `runScriptAsync` / `runFlowAsync`, which send `args` as given, without the
+  client's schema validation;
+- the resolver hook API (`setResourceResolver`, `resolvedResource`, ...).
+
+Generating to stdout is not possible with a runtime core.
 
 ### Resource Resolver Hook
 

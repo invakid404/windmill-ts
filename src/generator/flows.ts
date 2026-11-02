@@ -1,11 +1,15 @@
 import dedent from "dedent";
 import { getContext } from "./context.js";
 import { generateSchemas } from "./common.js";
+import { indent } from "./resources.js";
+import { startJobBody } from "./runtime.js";
 import type { Observer } from "./index.js";
 
 const mapName = "flows";
 
-const preamble = dedent`
+const getPreamble = (runtimeCore: boolean) =>
+  [
+    dedent`
   type RunFlowAsyncOptions = {
     scheduledFor?: Date | null;
     detached?: boolean;
@@ -25,36 +29,19 @@ const preamble = dedent`
     args: z.input<(typeof ${mapName})[Path]>,
     options?: RunFlowAsyncOptions,
   ) => {
-    const { scheduledFor, detached = true, tag } = options ?? {};
-    const schema = ${mapName}[flowPath];
-
-    const scheduledInSeconds = Math.ceil(
-      Math.max((scheduledFor?.getTime() ?? 0) - Date.now(), 0) / 1000,
-    );
-
-    const params: Record<string, string> = {};
-    if (scheduledInSeconds) params["scheduled_in_secs"] = String(scheduledInSeconds);
-    if (tag) params["tag"] = tag;
-    if (!detached) {
-      const parentJobId = process.env["WM_JOB_ID"];
-      if (parentJobId) params["parent_job"] = parentJobId;
-      const rootJobId = process.env["WM_ROOT_FLOW_JOB_ID"];
-      if (rootJobId) params["root_job"] = rootJobId;
-    }
-
-    const url = new URL(\`\${wmill.OpenAPI.BASE}/w/\${process.env["WM_WORKSPACE"]}/jobs/run/f/\${flowPath}\`);
-    url.search = new URLSearchParams(params).toString();
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": \`Bearer \${wmill.OpenAPI.TOKEN}\`,
-      },
-      body: JSON.stringify(schema.parse(args)),
-    });
-
-    return response.text();
+    `,
+    indent(
+      runtimeCore
+        ? `return _startFlow(flowPath, ${mapName}[flowPath].parse(args), options);`
+        : startJobBody({
+            kind: "flow",
+            segment: "f",
+            pathVariable: "flowPath",
+            detachedDefault: "true",
+            body: `${mapName}[flowPath].parse(args)`,
+          }),
+    ),
+    dedent`
   };
 
   export const runFlow = async <Path extends keyof typeof ${mapName}>(
@@ -76,12 +63,13 @@ const preamble = dedent`
   export type FlowPath = keyof typeof ${mapName};
 
   export type FlowArgs<Path extends FlowPath> = z.input<(typeof ${mapName})[Path]>;
-`;
+    `,
+  ].join("\n");
 
 export const generateFlows = async (observer: Observer) => {
-  const { write, config, source } = getContext()!;
+  const { write, config, source, runtimeImport } = getContext()!;
 
-  await write(preamble);
+  await write(getPreamble(runtimeImport != null));
 
   return generateSchemas({
     generator: source.listFlows(),

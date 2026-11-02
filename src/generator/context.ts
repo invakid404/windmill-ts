@@ -22,6 +22,9 @@ export type SharedContext = {
   // The data source generation metadata is read from (remote HTTP or a local
   // wmill-synced folder). Injected here so tasks never reach for a global.
   source: GenerationSource;
+  // Import specifier of the runtime core when it is generated as its own file
+  // (`resources.runtime`); null when everything goes into one file
+  runtimeImport: string | null;
 };
 
 type GenerateContext = SharedContext & {
