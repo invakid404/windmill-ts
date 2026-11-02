@@ -3,6 +3,7 @@ import type { JSONSchema } from "./types.js";
 import { getContext } from "./context.js";
 import { schemaToZod } from "./common.js";
 import dedent from "dedent";
+import { compareStrings } from "../source/resources.js";
 import type { Observer } from "./index.js";
 import * as path from "node:path";
 import capitalize from "@stdlib/string-capitalize";
@@ -63,6 +64,15 @@ type ImportHookConfig = {
   importExtension?: string;
 } | null | undefined;
 
+/** The import specifier of `file` from a module in `fromDir`. */
+export const relativeImportPath = (fromDir: string, file: string) => {
+  const importPath = path.relative(fromDir, file).replace(/\\/g, "/");
+
+  return importPath.startsWith("./") || importPath.startsWith("../")
+    ? importPath
+    : `./${importPath}`;
+};
+
 const resolveConfiguredImport = (
   hook: ImportHookConfig,
   outputDir: string,
@@ -74,12 +84,10 @@ const resolveConfiguredImport = (
 
   const configDir = configPath ? path.dirname(configPath) : process.cwd();
 
-  let importPath = path.resolve(configDir, hook.importPath);
-  importPath = path.relative(outputDir, importPath);
-  importPath = importPath.replace(/\\/g, "/");
-  if (!importPath.startsWith("./") && !importPath.startsWith("../")) {
-    importPath = `./${importPath}`;
-  }
+  let importPath = relativeImportPath(
+    outputDir,
+    path.resolve(configDir, hook.importPath),
+  );
 
   if (hook.importExtension) {
     const extension = path.extname(importPath);
@@ -137,10 +145,7 @@ const hasVarReferences = (obj: unknown): boolean => {
   return false;
 };
 
-const getPreamble = ({
-  embed,
-  hasConfiguredResourceResolver,
-}: ResourcePreambleOptions) => dedent`
+const transformerTypesCode = dedent`
   export type Cast<T, U> = T extends U ? T : U;
 
   export interface Transformer {
@@ -160,10 +165,17 @@ const getPreamble = ({
     skipValidation?: boolean;
     skipTransformer?: boolean;
   };
+`;
 
+const resourcePathTypesCode = dedent`
   export type ResourcePath = keyof typeof ${resourceToTypeMap};
   export type ResourceTypeName = keyof ${resourceTypesTypeName} & string;
+`;
 
+const getResolverCode = ({
+  embed,
+  hasConfiguredResourceResolver,
+}: ResourcePreambleOptions) => dedent`
   export type ResourceResolverContext = {
     path: string;
     resourceType: ResourceTypeName;
@@ -239,7 +251,40 @@ const getPreamble = ({
 
     return resolved === undefined ? resolveDefault() : resolved.value;
   };
+`;
 
+// Validates, resolves and transforms the resource at \`path\`, given its
+// \`{ name, schema }\` entry as \`resource\`
+export const resolveResourceBody = dedent`
+  const { name, schema } = resource;
+  if (resourceType != null && name !== resourceType) {
+    throw new Error(
+      \`Unexpected resource type: expected \${JSON.stringify(resourceType)} but resource \${JSON.stringify(path)} has type \${JSON.stringify(name)}\`,
+    );
+  }
+
+  const data = await _resolveResourceData({
+    path,
+    resourceType: name as ResourceTypeName,
+    options,
+  });
+  const parsedData = (options?.skipValidation ? data : schema.parse(data)) as object;
+
+  if (options?.skipTransformer) {
+    return parsedData;
+  }
+
+  const transformer = ${resourceTransformerName}.prototype.do;
+
+  return transformer.call({ arg: parsedData }, parsedData);
+`;
+
+export const indent = (code: string) =>
+  code.replace(/^(?=.)/gm, "  ");
+
+// With a separate runtime core, \`getResource\` hands the lookup to the core's
+// \`_getResourceAs\`, which holds the resolution logic
+const getResourceCode = (runtimeCore: boolean) => dedent`
   type GetResource = {
     <Path extends keyof typeof ${resourceToTypeMap}>(
       path: Path,
@@ -265,30 +310,13 @@ const getPreamble = ({
     if (resource == null) {
       throw new Error(\`Unknown resource: \${JSON.stringify(path)}\`);
     }
+` + "\n\n" + indent(
+  runtimeCore
+    ? "return _getResourceAs(path, resource, resourceType, options);"
+    : resolveResourceBody,
+) + "\n}";
 
-    const { name, schema } = resource;
-    if (resourceType != null && name !== resourceType) {
-      throw new Error(
-        \`Unexpected resource type: expected \${JSON.stringify(resourceType)} but resource \${JSON.stringify(path)} has type \${JSON.stringify(name)}\`,
-      );
-    }
-
-    const data = await _resolveResourceData({
-      path,
-      resourceType: name as ResourceTypeName,
-      options,
-    });
-    const parsedData = (options?.skipValidation ? data : schema.parse(data)) as object;
-
-    if (options?.skipTransformer) {
-      return parsedData;
-    }
-
-    const transformer = ${resourceTransformerName}.prototype.do;
-
-    return transformer.call({ arg: parsedData }, parsedData);
-  }
-
+const listResourcesCode = dedent`
   export const getDefaultResource = <
     T extends keyof typeof defaultPerResourceType,
   >(
@@ -336,7 +364,9 @@ const getPreamble = ({
       yield resource;
     }
   }
+`;
 
+const resourcePathHelpersCode = dedent`
   export const getResourcePathsForType = <Type extends keyof typeof pathsPerResourceType>(
     resourceType: Type,
   ): (typeof pathsPerResourceType)[Type] => {
@@ -359,10 +389,24 @@ const getPreamble = ({
   }
 `;
 
-export const generateResources = async (observer: Observer) => {
-  const { write, resourceTypes, workspaceResources, config, outputDir, source } =
-    getContext()!;
-  const { resourcesByType, pathToResourceType } = workspaceResources;
+const getRuntimeCode = (options: ResourcePreambleOptions) =>
+  [transformerTypesCode, getResolverCode(options), resourcePathHelpersCode].join(
+    "\n\n",
+  );
+
+// The resource part of a single-file client
+const getPreamble = (options: ResourcePreambleOptions) =>
+  [
+    transformerTypesCode,
+    resourcePathTypesCode,
+    getResolverCode(options),
+    getResourceCode(false),
+    listResourcesCode,
+    resourcePathHelpersCode,
+  ].join("\n\n");
+
+const writeHookImports = async () => {
+  const { write, config, outputDir } = getContext()!;
 
   const transformerImport = resolveConfiguredImport(
     config.resources.transformer,
@@ -370,15 +414,12 @@ export const generateResources = async (observer: Observer) => {
     config.configPath,
   );
 
-  if (!transformerImport) {
-    await write(defaultResourceTransformer);
-  }
-
   if (transformerImport) {
     await write(
       `import { ${transformerImport.importName} as ${resourceTransformerName} } from ${JSON.stringify(transformerImport.importPath)};`,
     );
   } else {
+    await write(defaultResourceTransformer);
     await write(
       `const ${resourceTransformerName} = ${defaultResourceTransformerName};`,
     );
@@ -395,87 +436,220 @@ export const generateResources = async (observer: Observer) => {
     );
   }
 
-  const hasEmbeddedResources = config.resources.embed.paths.length > 0;
+  return { hasConfiguredResourceResolver: resolverImport != null };
+};
+
+const fetchEmbeddedResources = async (observer: Observer) => {
+  const { workspaceResources, config, source } = getContext()!;
+  const { resourcesByType, pathToResourceType } = workspaceResources;
+
   const embeddedValues = new Map<string, unknown>();
   const embeddedPathsWithVars = new Set<string>();
 
-  if (hasEmbeddedResources) {
-    observer.next("Fetching embedded resource values...");
+  if (config.resources.embed.paths.length === 0) {
+    return { embeddedValues, embeddedPathsWithVars };
+  }
 
-    const allKnownPaths = new Set(
-      [...resourcesByType.values()].flat(),
-    );
+  observer.next("Fetching embedded resource values...");
 
-    for (const embedPath of config.resources.embed.paths) {
-      if (!allKnownPaths.has(embedPath)) {
-        const resourceType = pathToResourceType.get(embedPath);
-        if (resourceType != null) {
-          throw new Error(
-            `Embedded resource ${JSON.stringify(embedPath)} has unsupported resource type ${JSON.stringify(resourceType)}`,
-          );
-        }
+  const allKnownPaths = new Set([...resourcesByType.values()].flat());
+
+  for (const embedPath of config.resources.embed.paths) {
+    if (!allKnownPaths.has(embedPath)) {
+      const resourceType = pathToResourceType.get(embedPath);
+      if (resourceType != null) {
         throw new Error(
-          `Embedded resource path ${JSON.stringify(embedPath)} not found in workspace`,
+          `Embedded resource ${JSON.stringify(embedPath)} has unsupported resource type ${JSON.stringify(resourceType)}`,
         );
       }
-    }
-
-    for (const embedPath of config.resources.embed.paths) {
-      let value: unknown;
-      try {
-        value = await source.getResourceValue(embedPath);
-      } catch (err) {
-        throw new Error(
-          `Failed to fetch embedded resource ${JSON.stringify(embedPath)}: ${err instanceof Error ? err.message : err}`,
-        );
-      }
-      embeddedValues.set(embedPath, value);
-
-      if (hasVarReferences(value)) {
-        embeddedPathsWithVars.add(embedPath);
-      }
+      throw new Error(
+        `Embedded resource path ${JSON.stringify(embedPath)} not found in workspace`,
+      );
     }
   }
 
-  const hasResourcesWithVars = embeddedPathsWithVars.size > 0;
+  for (const embedPath of config.resources.embed.paths) {
+    let value: unknown;
+    try {
+      value = await source.getResourceValue(embedPath);
+    } catch (err) {
+      throw new Error(
+        `Failed to fetch embedded resource ${JSON.stringify(embedPath)}: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+    embeddedValues.set(embedPath, value);
+
+    if (hasVarReferences(value)) {
+      embeddedPathsWithVars.add(embedPath);
+    }
+  }
+
+  return { embeddedValues, embeddedPathsWithVars };
+};
+
+type EmbeddedResources = Awaited<ReturnType<typeof fetchEmbeddedResources>>;
+
+const embedOptions = ({ embeddedValues, embeddedPathsWithVars }: EmbeddedResources) => {
+  const { config } = getContext()!;
+
+  return {
+    enabled: embeddedValues.size > 0,
+    resolveVariables: config.resources.embed.resolveVariables,
+    hasResourcesWithVars: embeddedPathsWithVars.size > 0,
+  };
+};
+
+const writeEmbeddedResources = async ({
+  embeddedValues,
+  embeddedPathsWithVars,
+}: EmbeddedResources) => {
+  const { write, config } = getContext()!;
+
+  if (embeddedValues.size === 0) {
+    return;
+  }
+
+  if (config.resources.embed.resolveVariables && embeddedPathsWithVars.size > 0) {
+    await write(resolveVariablesFnCode);
+  }
+
+  await write(`const ${embeddedResourcesMapName} = {`);
+  for (const [resPath, value] of embeddedValues) {
+    const hasVars = embeddedPathsWithVars.has(resPath);
+    await write(`  ${JSON.stringify(resPath)}: { value: ${JSON.stringify(value)}, hasVars: ${hasVars} },`);
+  }
+  await write(`} as const;`);
+};
+
+const writePathsPerResourceType = async () => {
+  const { write, workspaceResources } = getContext()!;
+
+  await write(`const pathsPerResourceType = lazyObject(() => ({`);
+  for (const [resourceTypeName, paths] of workspaceResources.resourcesByType) {
+    await write(
+      `${JSON.stringify(resourceTypeName)}: ${JSON.stringify(paths)} as const,`,
+    );
+  }
+  await write(`} as const));`);
+};
+
+const writeResourceTypeSchema = async (resourceTypeName: string) => {
+  const { write, resourceTypes, config } = getContext()!;
+  const resourceType = resourceTypes.get(resourceTypeName)!;
+
+  const resourceTypeSchema = schemaToZod(resourceType.schema as never, {
+    resourceTypeToSchema: resourceTypeSchemaName,
+    looseTopLevelObject: config.resources.looseSchemas,
+  });
+
   await write(
-    getPreamble({
-      embed: {
-        enabled: hasEmbeddedResources,
-        resolveVariables: config.resources.embed.resolveVariables,
-        hasResourcesWithVars,
-      },
-      hasConfiguredResourceResolver: resolverImport != null,
-    }),
+    dedent`
+      const ${resourceTypeSchemaName(resourceType.name)} = lazyObject(() => ({
+        name: ${JSON.stringify(resourceType.name)},
+        schema: ${resourceTypeSchema},
+      }));
+    `,
   );
+};
+
+const referencedResourceTypes = (schema: unknown): string[] => {
+  if (schema == null || typeof schema !== "object") {
+    return [];
+  }
+
+  const { format } = schema as { format?: unknown };
+  const own =
+    typeof format === "string" && format.startsWith("resource-")
+      ? [format.slice("resource-".length)]
+      : [];
+
+  return [...own, ...Object.values(schema).flatMap(referencedResourceTypes)];
+};
+
+/**
+ * The resource types whose schemas the runtime core declares: those of the
+ * embedded resources, and the ones their schemas refer to.
+ */
+export const runtimeResourceTypes = () => {
+  const { config, resourceTypes, workspaceResources } = getContext()!;
+
+  const types = new Set<string>();
+  const pending = config.resources.embed.paths.flatMap(
+    (embedPath) => workspaceResources.pathToResourceType.get(embedPath) ?? [],
+  );
+  for (let type = pending.pop(); type != null; type = pending.pop()) {
+    const resourceType = resourceTypes.get(type);
+    if (resourceType == null || types.has(type)) {
+      continue;
+    }
+
+    types.add(type);
+    pending.push(...referencedResourceTypes(resourceType.schema));
+  }
+
+  return [...types].sort(compareStrings);
+};
+
+/**
+ * Writes the resource part of the runtime core: the transformer, the resolver
+ * hook, the embedded values, the resource paths per type and the schemas of
+ * the runtime's resource types. A single-file client writes the same pieces
+ * inline instead (see \`generateResources\`).
+ */
+export const writeResourceRuntime = async (observer: Observer) => {
+  const { write } = getContext()!;
+
+  const { hasConfiguredResourceResolver } = await writeHookImports();
+  const embedded = await fetchEmbeddedResources(observer);
+  const options = { embed: embedOptions(embedded), hasConfiguredResourceResolver };
+
+  await write(`type ResourceTypeName = string;`);
+  await write(getRuntimeCode(options));
+  await writeEmbeddedResources(embedded);
+  await writePathsPerResourceType();
+
+  observer.next("Generating schemas...");
+  for (const resourceTypeName of runtimeResourceTypes()) {
+    await writeResourceTypeSchema(resourceTypeName);
+  }
+
+  return embedded;
+};
+
+export const generateResources = async (observer: Observer) => {
+  const { write, workspaceResources, config, runtimeImport } = getContext()!;
+  const { resourcesByType } = workspaceResources;
+
+  // NOTE: with a runtime core, the shared runtime and the schemas of the
+  //       resource types it needs live there, and this file imports them
+  const runtimeTypes = new Set(runtimeImport == null ? [] : runtimeResourceTypes());
+
+  if (runtimeImport == null) {
+    const { hasConfiguredResourceResolver } = await writeHookImports();
+    const embedded = await fetchEmbeddedResources(observer);
+    await write(
+      getPreamble({ embed: embedOptions(embedded), hasConfiguredResourceResolver }),
+    );
+    await writeEmbeddedResources(embedded);
+    await writePathsPerResourceType();
+  } else {
+    await write(
+      [resourcePathTypesCode, getResourceCode(true), listResourcesCode].join("\n\n"),
+    );
+  }
 
   observer.next("Generating schemas...");
 
   const defaultPerResourceType = new Map<string, string>();
 
   for (const [resourceTypeName, paths] of resourcesByType) {
-    const resourceType = resourceTypes.get(resourceTypeName)!;
+    if (!runtimeTypes.has(resourceTypeName)) {
+      await writeResourceTypeSchema(resourceTypeName);
+    }
 
-    const typeSchemaName = resourceTypeSchemaName(resourceType.name);
-    const resourceTypeSchema = schemaToZod(resourceType.schema as never, {
-      resourceTypeToSchema: resourceTypeSchemaName,
-      looseTopLevelObject: config.resources.looseSchemas,
-    });
-
-    await write(
-      dedent`
-        const ${typeSchemaName} = lazyObject(() => ({
-          name: ${JSON.stringify(resourceType.name)},
-          schema: ${resourceTypeSchema},
-        }));
-      `,
-    );
-
-    const referencesSchemaName = resourceReferencesSchemaName(
-      resourceType.name,
-    );
+    const referencesSchemaName = resourceReferencesSchemaName(resourceTypeName);
     const referencesSchema = schemaToZod(
-      makeReferencesSchema(resourceType.name, paths),
+      makeReferencesSchema(resourceTypeName, paths),
     );
 
     await write(
@@ -488,33 +662,12 @@ export const generateResources = async (observer: Observer) => {
     }
   }
 
-  if (embeddedValues.size > 0) {
-    if (config.resources.embed.resolveVariables && hasResourcesWithVars) {
-      await write(resolveVariablesFnCode);
-    }
-
-    await write(`const ${embeddedResourcesMapName} = {`);
-    for (const [resPath, value] of embeddedValues) {
-      const hasVars = embeddedPathsWithVars.has(resPath);
-      await write(`  ${JSON.stringify(resPath)}: { value: ${JSON.stringify(value)}, hasVars: ${hasVars} },`);
-    }
-    await write(`} as const;`);
-  }
-
   await write(`const ${resourceToTypeMap} = lazyObject(() => ({`);
   for (const [resourceTypeName, paths] of resourcesByType) {
     const typeSchemaName = resourceTypeSchemaName(resourceTypeName);
     for (const path of paths) {
       await write(`${JSON.stringify(path)}: ${typeSchemaName},`);
     }
-  }
-  await write(`} as const));`);
-
-  await write(`const pathsPerResourceType = lazyObject(() => ({`);
-  for (const [resourceTypeName, paths] of resourcesByType) {
-    await write(
-      `${JSON.stringify(resourceTypeName)}: ${JSON.stringify(paths)} as const,`,
-    );
   }
   await write(`} as const));`);
 
@@ -560,7 +713,7 @@ export const resourceReferencesSchemaName = (resourceType: string) =>
 export const resourceTypeSchemaName = (resourceType: string) =>
   toValidIdentifier(`${resourceType}_type`);
 
-const getResourceTypeDefault = (resourceType: string, paths: string[]) => {
+export const getResourceTypeDefault = (resourceType: string, paths: string[]) => {
   const { config } = getContext()!;
 
   return resourceType in config.resources.defaults

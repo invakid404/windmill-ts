@@ -124,16 +124,24 @@ program
       source = remoteSource;
     }
 
+    const outputDir = isStdout ? cwd : path.dirname(path.resolve(cwd, output));
+    const runtimePath = config.resources.runtime;
+    if (runtimePath != null && isStdout) {
+      throw new Error(
+        "resources.runtime generates a second file, so the output can't be stdout",
+      );
+    }
+
     const stream = isStdout ? process.stdout : fs.createWriteStream(output);
 
-    await generate(
-      stream,
-      isStdout ? cwd : path.dirname(path.resolve(cwd, output)),
-      {
-        spinners: !isStdout,
-        source,
-      },
-    );
+    await generate(stream, outputDir, {
+      spinners: !isStdout,
+      source,
+      runtimeOutput:
+        runtimePath == null
+          ? undefined
+          : fs.createWriteStream(path.resolve(outputDir, runtimePath)),
+    });
   });
 
 program.parse();

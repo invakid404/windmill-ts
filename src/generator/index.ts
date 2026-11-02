@@ -1,13 +1,16 @@
 import { Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { writePreamble } from "./preamble.js";
-import { run } from "./context.js";
+import { run, type SharedContext } from "./context.js";
 import type { GenerationSource, ResourceTypes } from "../source/types.js";
 import { collectWorkspaceResources } from "../source/resources.js";
 import { remoteSource } from "../source/remote.js";
 import { generateScripts } from "./scripts.js";
 import { generateResources } from "./resources.js";
 import { generateFlows } from "./flows.js";
+import { generateRuntime } from "./runtime.js";
+import { relativeImportPath } from "./resources.js";
+import * as path from "node:path";
 import { runWithBuffer } from "./common.js";
 import { runTasks, type Observer } from "./taskRunner.js";
 import { Config, getConfig } from "../config/index.js";
@@ -18,6 +21,8 @@ export type GenerateOptions = {
   spinners?: boolean;
   /** The data source to generate from. Defaults to the remote HTTP provider. */
   source?: GenerationSource;
+  /** Where the runtime core goes; required when \`resources.runtime\` is set. */
+  runtimeOutput?: Writable;
 };
 
 type Task = {
@@ -45,9 +50,19 @@ export const generate = async (
   outputDir: string,
   options?: GenerateOptions,
 ) => {
-  const { spinners = false, source = remoteSource } = options ?? {};
+  const {
+    spinners = false,
+    source = remoteSource,
+    runtimeOutput,
+  } = options ?? {};
 
   const config = await getConfig();
+  const runtimePath = config.resources.runtime;
+  if (runtimePath != null && runtimeOutput == null) {
+    throw new Error(
+      "resources.runtime is set, but there is no output for the runtime core",
+    );
+  }
 
   const allResourceTypes = await source.listResourceTypes();
   const workspaceResources = await collectWorkspaceResources(
@@ -67,7 +82,29 @@ export const generate = async (
     ]),
   );
 
-  const shared = { outputDir, resourceTypes, workspaceResources, source };
+  const shared: SharedContext = {
+    outputDir,
+    resourceTypes,
+    workspaceResources,
+    source,
+    runtimeImport: null,
+  };
+
+  if (runtimePath != null) {
+    const runtimeFile = path.resolve(outputDir, runtimePath);
+
+    await run(
+      runtimeOutput!,
+      { ...shared, outputDir: path.dirname(runtimeFile) },
+      () =>
+        runTasks(
+          [{ title: "Generate runtime core", task: generateRuntime }],
+          { silent: !spinners },
+        ),
+    );
+
+    shared.runtimeImport = relativeImportPath(outputDir, runtimeFile);
+  }
 
   return run(output, shared, async () => {
     await writePreamble();

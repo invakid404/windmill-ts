@@ -45,6 +45,9 @@ const ResourceOptionsSchema = z
     embed: EmbedSchema,
     // Optional resolver hook consulted before embedded/backend resource fetches
     resolver: ImportHookSchema,
+    // Optional path, relative to the output, of a second generated file holding
+    // the registry-free runtime core (resource resolution and job starts)
+    runtime: z.string().min(1).optional(),
   })
   .prefault({});
 
